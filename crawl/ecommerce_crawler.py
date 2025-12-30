@@ -127,36 +127,118 @@ class EcommerceCrawler:
         return snapshot_path
     
     def crawl_category_page(self, category_url: str, category_name: str) -> List[str]:
-        """Crawl category page and return product URLs"""
+        """Crawl category page with pagination support and return all product URLs"""
         print(f"\n📂 Crawling category: {category_name}")
         print(f"   URL: {category_url}")
         
-        self._rate_limit()
-        start_time = time.time()
+        all_product_links = []
+        page_num = 1
+        
+        while True:
+            # Construct page URL
+            if page_num == 1:
+                page_url = category_url
+            else:
+                page_url = f"{category_url}?page={page_num}"
+            
+            self._rate_limit()
+            start_time = time.time()
+            
+            try:
+                response = self.session.get(page_url, timeout=15)
+                response.raise_for_status()
+                
+                duration_ms = int((time.time() - start_time) * 1000)
+                
+                soup = BeautifulSoup(response.text, 'html.parser')
+                
+                # Extract product links from current page
+                page_product_links = []
+                for link in soup.select('a.title'):
+                    href = link.get('href')
+                    if href:
+                        full_url = urljoin(page_url, href)
+                        if full_url not in all_product_links:  # Avoid duplicates
+                            page_product_links.append(full_url)
+                            all_product_links.append(full_url)
+                
+                if page_product_links:
+                    print(f"   � Page {page_num}: Found {len(page_product_links)} products ({duration_ms}ms)")
+                else:
+                    # No products found, we've reached the end
+                    break
+                
+                # Check if there's a next page
+                next_button = soup.select_one('a[rel="next"]') or soup.select_one('li.page-item:not(.disabled) a[aria-label="Next"]')
+                if not next_button:
+                    break
+                
+                page_num += 1
+                
+            except Exception as e:
+                print(f"   ⚠️  Error on page {page_num}: {e}")
+                break
+        
+        print(f"   ✅ Total products found: {len(all_product_links)} across {page_num} page(s)")
+        return all_product_links
+    
+    def discover_categories(self) -> List[tuple]:
+        """Auto-discover all categories and subcategories from the website"""
+        print(f"\n🔍 Discovering categories from {BASE_URL}...")
         
         try:
-            response = self.session.get(category_url, timeout=15)
+            response = self.session.get(BASE_URL, timeout=15)
             response.raise_for_status()
-            
-            duration_ms = int((time.time() - start_time) * 1000)
-            print(f"   ✅ Loaded in {duration_ms}ms")
-            
             soup = BeautifulSoup(response.text, 'html.parser')
             
-            # Extract product links
-            product_links = []
-            for link in soup.select('a.title'):
-                href = link.get('href')
-                if href:
-                    full_url = urljoin(category_url, href)
-                    product_links.append(full_url)
+            categories = []
             
-            print(f"   📦 Found {len(product_links)} products")
-            return product_links
+            # Find all category links in navigation
+            # Look for main categories and subcategories
+            nav_links = soup.select('a.category-link, div.side-collapse a, nav a')
+            
+            seen_urls = set()
+            for link in nav_links:
+                href = link.get('href', '')
+                category_name = link.get_text(strip=True)
+                
+                # Filter for valid category URLs
+                if href and ('computers' in href.lower() or 'phones' in href.lower() or 
+                            'tablets' in href.lower() or 'touch' in href.lower()):
+                    full_url = urljoin(BASE_URL, href)
+                    
+                    # Avoid duplicates
+                    if full_url not in seen_urls and category_name:
+                        categories.append((category_name, full_url))
+                        seen_urls.add(full_url)
+            
+            # If auto-discovery fails, fall back to known categories
+            if not categories:
+                print("   ⚠️  Auto-discovery failed, using default categories")
+                categories = [
+                    ("Computers", f"{BASE_URL}/computers"),
+                    ("Phones", f"{BASE_URL}/phones"),
+                    ("Laptops", f"{BASE_URL}/computers/laptops"),
+                    ("Tablets", f"{BASE_URL}/computers/tablets"),
+                    ("Touch", f"{BASE_URL}/phones/touch"),
+                ]
+            
+            print(f"   ✅ Found {len(categories)} categories:")
+            for name, url in categories:
+                print(f"      • {name}")
+            
+            return categories
             
         except Exception as e:
-            print(f"   ❌ Error: {e}")
-            return []
+            print(f"   ❌ Discovery error: {e}")
+            # Return default categories as fallback
+            return [
+                ("Computers", f"{BASE_URL}/computers"),
+                ("Phones", f"{BASE_URL}/phones"),
+                ("Laptops", f"{BASE_URL}/computers/laptops"),
+                ("Tablets", f"{BASE_URL}/computers/tablets"),
+                ("Touch", f"{BASE_URL}/phones/touch"),
+            ]
     
     def crawl_product_page(self, product_url: str, category: str) -> Optional[Dict]:
         """Crawl individual product page and extract data"""
@@ -277,18 +359,16 @@ class EcommerceCrawler:
             return None
     
     def crawl_all_categories(self):
-        """Crawl all categories from the demo site"""
-        categories = [
-            ("Computers", f"{BASE_URL}/computers"),
-            ("Phones", f"{BASE_URL}/phones"),
-        ]
-        
+        """Crawl all categories from the demo site with auto-discovery"""
         print(f"\n{'='*60}")
-        print(f"🚀 Starting E-commerce Crawler v2.0")
+        print(f"🚀 Starting E-commerce Crawler v2.1 (Enhanced)")
         print(f"{'='*60}")
         print(f"⏰ Crawl Time: {self.crawl_time}")
         print(f"🌐 Source: {self.source}")
         print(f"📁 Output: {RAW_OUTPUT_FILE}")
+        
+        # Auto-discover categories
+        categories = self.discover_categories()
         
         for category_name, category_url in categories:
             product_urls = self.crawl_category_page(category_url, category_name)
