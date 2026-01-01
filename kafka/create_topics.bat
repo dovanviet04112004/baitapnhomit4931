@@ -1,8 +1,8 @@
 @echo off
-REM Windows batch script to create Kafka topics
+REM Windows batch script to create Kafka topics for Crypto Pipeline
 
 echo ==================================================
-echo Creating Kafka Topics for Price Analytics Pipeline
+echo Creating Kafka Topics for Crypto Analytics Pipeline
 echo ==================================================
 
 set KAFKA_BROKER=localhost:19092
@@ -15,15 +15,15 @@ timeout /t 10 /nobreak >nul
 echo.
 echo Creating topics with retention policies...
 
-REM raw_products: Keep raw data for 7 days (604800000 ms)
+REM raw_crypto: Keep raw data for 7 days (604800000 ms)
 echo.
-echo Creating topic: raw_products
-docker exec kafka-broker-1 kafka-topics --create --bootstrap-server kafka-broker-1:9092 --topic raw_products --partitions %PARTITIONS% --replication-factor %REPLICATION_FACTOR% --config retention.ms=604800000 --config compression.type=snappy --if-not-exists
+echo Creating topic: raw_crypto
+docker exec kafka-broker-1 kafka-topics --create --bootstrap-server kafka-broker-1:9092 --topic raw_crypto --partitions %PARTITIONS% --replication-factor %REPLICATION_FACTOR% --config retention.ms=604800000 --config compression.type=snappy --if-not-exists
 
-REM clean_products: Keep cleaned data for 30 days (2592000000 ms)
+REM clean_crypto: Keep cleaned data for 30 days (2592000000 ms)
 echo.
-echo Creating topic: clean_products
-docker exec kafka-broker-1 kafka-topics --create --bootstrap-server kafka-broker-1:9092 --topic clean_products --partitions %PARTITIONS% --replication-factor %REPLICATION_FACTOR% --config retention.ms=2592000000 --config compression.type=snappy --if-not-exists
+echo Creating topic: clean_crypto
+docker exec kafka-broker-1 kafka-topics --create --bootstrap-server kafka-broker-1:9092 --topic clean_crypto --partitions %PARTITIONS% --replication-factor %REPLICATION_FACTOR% --config retention.ms=2592000000 --config compression.type=snappy --if-not-exists
 
 REM alerts: Keep alerts for 90 days (7776000000 ms)
 echo.
@@ -42,12 +42,12 @@ echo Topic Details:
 echo ==================================================
 
 echo.
-echo --- Topic: raw_products ---
-docker exec kafka-broker-1 kafka-topics --describe --bootstrap-server kafka-broker-1:9092 --topic raw_products
+echo --- Topic: raw_crypto ---
+docker exec kafka-broker-1 kafka-topics --describe --bootstrap-server kafka-broker-1:9092 --topic raw_crypto
 
 echo.
-echo --- Topic: clean_products ---
-docker exec kafka-broker-1 kafka-topics --describe --bootstrap-server kafka-broker-1:9092 --topic clean_products
+echo --- Topic: clean_crypto ---
+docker exec kafka-broker-1 kafka-topics --describe --bootstrap-server kafka-broker-1:9092 --topic clean_crypto
 
 echo.
 echo --- Topic: alerts ---

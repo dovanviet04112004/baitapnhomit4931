@@ -1,6 +1,7 @@
 @echo off
 REM ========================================
-REM Spark to Elasticsearch - Crypto
+REM Spark Batch Scheduler - Crypto Analytics
+REM Chạy batch processing tự động mỗi 4 giờ
 REM ========================================
 
 set "JAVA_HOME=C:\Program Files\Eclipse Adoptium\jdk-11.0.29.7-hotspot"
@@ -11,10 +12,11 @@ echo Using JAVA_HOME=%JAVA_HOME%
 java -version
 
 echo.
-echo Pushing data to Elasticsearch...
+echo Starting Batch Scheduler (every 6 hours)...
+echo Press Ctrl+C to stop
 echo.
 
 "C:\Users\ASUS\AppData\Local\Programs\Python\Python311\python.exe" ^
-  "C:\Users\ASUS\Python\bigdata\spark\spark_to_elasticsearch.py" %1
+  "C:\Users\ASUS\Python\bigdata\spark\scheduler.py" %*
 
 pause

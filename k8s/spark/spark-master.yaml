@@ -1,0 +1,79 @@
+# Spark Master Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: spark-master
+  namespace: crypto-pipeline
+  labels:
+    app: spark
+    role: master
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: spark
+      role: master
+  template:
+    metadata:
+      labels:
+        app: spark
+        role: master
+    spec:
+      containers:
+      - name: spark-master
+        image: bitnami/spark:3.5
+        ports:
+        - containerPort: 7077
+          name: master
+        - containerPort: 8080
+          name: webui
+        env:
+        - name: SPARK_MODE
+          value: "master"
+        - name: SPARK_MASTER_HOST
+          value: "spark-master"
+        - name: SPARK_MASTER_PORT
+          value: "7077"
+        - name: SPARK_MASTER_WEBUI_PORT
+          value: "8080"
+        resources:
+          requests:
+            memory: "1Gi"
+            cpu: "500m"
+          limits:
+            memory: "2Gi"
+            cpu: "1000m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: spark-master
+  namespace: crypto-pipeline
+  labels:
+    app: spark
+    role: master
+spec:
+  ports:
+  - port: 7077
+    name: master
+  - port: 8080
+    name: webui
+  selector:
+    app: spark
+    role: master
+---
+# Spark Master Web UI - NodePort
+apiVersion: v1
+kind: Service
+metadata:
+  name: spark-master-webui
+  namespace: crypto-pipeline
+spec:
+  type: NodePort
+  ports:
+  - port: 8080
+    targetPort: 8080
+    nodePort: 30080
+  selector:
+    app: spark
+    role: master

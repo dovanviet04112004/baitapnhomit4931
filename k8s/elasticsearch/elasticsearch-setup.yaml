@@ -1,0 +1,96 @@
+# Elasticsearch Index Setup Job
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: elasticsearch-setup
+  namespace: crypto-pipeline
+spec:
+  template:
+    spec:
+      containers:
+      - name: es-setup
+        image: curlimages/curl:latest
+        command:
+        - /bin/sh
+        - -c
+        - |
+          echo "Waiting for Elasticsearch to be ready..."
+          sleep 60
+          
+          # Wait until ES is ready
+          until curl -s http://elasticsearch:9200/_cluster/health | grep -q '"status":"green"\|"status":"yellow"'; do
+            echo "Waiting for Elasticsearch..."
+            sleep 10
+          done
+          
+          echo "Creating indices..."
+          
+          # Index: crypto_latest
+          curl -X PUT "http://elasticsearch:9200/crypto_latest" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "settings": {
+                "number_of_shards": 2,
+                "number_of_replicas": 1
+              },
+              "mappings": {
+                "properties": {
+                  "symbol": {"type": "keyword"},
+                  "name": {"type": "text", "fields": {"keyword": {"type": "keyword"}}},
+                  "price_usd": {"type": "double"},
+                  "market_cap": {"type": "double"},
+                  "volume_24h": {"type": "double"},
+                  "percent_change_24h": {"type": "double"},
+                  "rank": {"type": "integer"},
+                  "last_updated": {"type": "date"}
+                }
+              }
+            }'
+          
+          # Index: crypto_history
+          curl -X PUT "http://elasticsearch:9200/crypto_history" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "settings": {
+                "number_of_shards": 2,
+                "number_of_replicas": 1
+              },
+              "mappings": {
+                "properties": {
+                  "symbol": {"type": "keyword"},
+                  "name": {"type": "text"},
+                  "date": {"type": "date", "format": "yyyy-MM-dd"},
+                  "price_usd": {"type": "double"},
+                  "price_high": {"type": "double"},
+                  "price_low": {"type": "double"},
+                  "market_cap": {"type": "double"},
+                  "volume_24h": {"type": "double"}
+                }
+              }
+            }'
+          
+          # Index: alerts
+          curl -X PUT "http://elasticsearch:9200/alerts" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "settings": {
+                "number_of_shards": 2,
+                "number_of_replicas": 1
+              },
+              "mappings": {
+                "properties": {
+                  "symbol": {"type": "keyword"},
+                  "name": {"type": "text"},
+                  "alert_type": {"type": "keyword"},
+                  "severity": {"type": "keyword"},
+                  "price_change_percent": {"type": "double"},
+                  "current_price": {"type": "double"},
+                  "detected_at": {"type": "date"}
+                }
+              }
+            }'
+          
+          echo "Indices created successfully!"
+          curl -s http://elasticsearch:9200/_cat/indices?v
+      restartPolicy: OnFailure
+  backoffLimit: 3

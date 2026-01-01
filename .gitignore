@@ -1,0 +1,88 @@
+# ============================================================
+#   GITIGNORE - Crypto Analytics Pipeline
+# ============================================================
+
+# ==================== DATA FILES (LỚN) ====================
+# KHÔNG push data lên Git - quá lớn!
+hdfs/data/raw/
+hdfs/data/clean/
+hdfs/data/aggregated/
+hdfs/checkpoints/
+
+# Crawl output
+crawl/output/
+
+# ==================== PYTHON ====================
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+eggs/
+*.egg
+.installed.cfg
+*.manifest
+*.spec
+
+# Virtual environments
+venv/
+ENV/
+env/
+.venv/
+
+# ==================== LOGS ====================
+*.log
+logs/
+spark/logs/
+
+# ==================== IDE ====================
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.project
+.pydevproject
+.settings/
+
+# ==================== OS ====================
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ==================== SPARK ====================
+spark-warehouse/
+metastore_db/
+derby.log
+
+# ==================== SECRETS (QUAN TRỌNG!) ====================
+# KHÔNG push credentials lên Git!
+*.pem
+*.key
+.env
+.env.local
+secrets/
+credentials/
+
+# ==================== TEMP ====================
+*.tmp
+*.temp
+*.bak
+tmp/
+temp/
+
+# ==================== ELASTICSEARCH ====================
+# ES data (nếu chạy local)
+elasticsearch-*/data/
+
+# ==================== JUPYTER ====================
+.ipynb_checkpoints/
+*.ipynb
+
+# ==================== ZIP/ARCHIVES ====================
+*.zip
+*.tar.gz
+*.rar

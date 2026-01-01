@@ -1,10 +1,10 @@
 #!/bin/bash
 
 # Kafka Topics Creation Script
-# This script creates the required topics for the e-commerce price analytics pipeline
+# This script creates the required topics for the crypto price analytics pipeline
 
 echo "=================================================="
-echo "Creating Kafka Topics for Price Analytics Pipeline"
+echo "Creating Kafka Topics for Crypto Analytics Pipeline"
 echo "=================================================="
 
 KAFKA_BROKER="localhost:19092"
@@ -43,11 +43,11 @@ create_topic() {
 echo ""
 echo "Creating topics with retention policies..."
 
-# raw_products: Keep raw data for 7 days (604800000 ms)
-create_topic "raw_products" 604800000
+# raw_crypto: Keep raw data for 7 days (604800000 ms)
+create_topic "raw_crypto" 604800000
 
-# clean_products: Keep cleaned data for 30 days (2592000000 ms)
-create_topic "clean_products" 2592000000
+# clean_crypto: Keep cleaned data for 30 days (2592000000 ms)
+create_topic "clean_crypto" 2592000000
 
 # alerts: Keep alerts for 90 days (7776000000 ms)
 create_topic "alerts" 7776000000
@@ -65,7 +65,7 @@ echo "=================================================="
 echo "Topic Details:"
 echo "=================================================="
 
-for topic in raw_products clean_products alerts; do
+for topic in raw_crypto clean_crypto alerts; do
     echo ""
     echo "--- Topic: $topic ---"
     docker exec kafka-broker-1 kafka-topics --describe \

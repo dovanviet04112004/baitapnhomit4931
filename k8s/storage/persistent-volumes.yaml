@@ -1,0 +1,55 @@
+# Persistent Volume Claims for Data Storage
+# Note: storageClassName varies by cloud provider:
+# - AKS: "managed-premium" or "default"
+# - GKE: "standard" or "premium-rwo"  
+# - EKS: "gp2" or "gp3"
+# - Minikube: "standard"
+# Change storageClassName based on your cluster!
+---
+# HDFS Data PVC
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: hdfs-data-pvc
+  namespace: crypto-pipeline
+  labels:
+    app: hdfs
+spec:
+  accessModes:
+    - ReadWriteOnce
+  # storageClassName: standard  # Uncomment and change based on your cloud
+  resources:
+    requests:
+      storage: 20Gi
+---
+# Spark Work Directory PVC  
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: spark-work-pvc
+  namespace: crypto-pipeline
+  labels:
+    app: spark
+spec:
+  accessModes:
+    - ReadWriteOnce  # Changed from ReadWriteMany - RWX needs special storage class
+  # storageClassName: standard
+  resources:
+    requests:
+      storage: 10Gi
+---
+# Logs PVC
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: logs-pvc
+  namespace: crypto-pipeline
+  labels:
+    app: logs
+spec:
+  accessModes:
+    - ReadWriteOnce  # Changed from ReadWriteMany
+  # storageClassName: standard
+  resources:
+    requests:
+      storage: 5Gi

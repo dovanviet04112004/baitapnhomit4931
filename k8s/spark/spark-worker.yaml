@@ -1,0 +1,67 @@
+# Spark Workers Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: spark-worker
+  namespace: crypto-pipeline
+  labels:
+    app: spark
+    role: worker
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: spark
+      role: worker
+  template:
+    metadata:
+      labels:
+        app: spark
+        role: worker
+    spec:
+      containers:
+      - name: spark-worker
+        image: bitnami/spark:3.5
+        ports:
+        - containerPort: 8081
+          name: webui
+        env:
+        - name: SPARK_MODE
+          value: "worker"
+        - name: SPARK_MASTER_URL
+          value: "spark://spark-master:7077"
+        - name: SPARK_WORKER_MEMORY
+          value: "2g"
+        - name: SPARK_WORKER_CORES
+          value: "2"
+        - name: SPARK_WORKER_WEBUI_PORT
+          value: "8081"
+        resources:
+          requests:
+            memory: "2Gi"
+            cpu: "500m"
+          limits:
+            memory: "4Gi"
+            cpu: "2000m"
+        volumeMounts:
+        - name: spark-data
+          mountPath: /opt/spark/work
+      volumes:
+      - name: spark-data
+        emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: spark-worker
+  namespace: crypto-pipeline
+  labels:
+    app: spark
+    role: worker
+spec:
+  ports:
+  - port: 8081
+    name: webui
+  selector:
+    app: spark
+    role: worker

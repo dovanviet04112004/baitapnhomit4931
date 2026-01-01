@@ -1,0 +1,8 @@
+# Namespace cho Crypto Analytics Pipeline
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: crypto-pipeline
+  labels:
+    app: crypto-analytics
+    environment: production

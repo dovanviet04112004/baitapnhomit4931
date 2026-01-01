@@ -1,0 +1,30 @@
+# Resource Quotas và Limits cho namespace
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: crypto-pipeline-quota
+  namespace: crypto-pipeline
+spec:
+  hard:
+    requests.cpu: "8"
+    requests.memory: "16Gi"
+    limits.cpu: "16"
+    limits.memory: "32Gi"
+    persistentvolumeclaims: "10"
+    pods: "50"
+---
+# LimitRange - Default limits cho pods
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: crypto-pipeline-limits
+  namespace: crypto-pipeline
+spec:
+  limits:
+  - default:
+      cpu: "500m"
+      memory: "512Mi"
+    defaultRequest:
+      cpu: "100m"
+      memory: "128Mi"
+    type: Container
