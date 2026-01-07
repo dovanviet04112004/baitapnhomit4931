@@ -1,0 +1,90 @@
+# CronJob: Sync Kafka → Elasticsearch
+# Chạy mỗi 5 phút để đồng bộ dữ liệu mới
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: kafka-es-sync
+  namespace: crypto-pipeline
+  labels:
+    app: data-sync
+spec:
+  schedule: "*/5 * * * *"  # Mỗi 5 phút
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 2
+  failedJobsHistoryLimit: 2
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      template:
+        spec:
+          restartPolicy: Never
+          containers:
+          - name: sync
+            image: python:3.11-slim
+            command: ["/bin/bash", "-c"]
+            args:
+            - |
+              set -e
+              echo "[$(date)] Starting Kafka → ES sync..."
+              
+              # Install packages
+              pip install kafka-python requests --quiet
+              
+              # Sync script
+              python << 'PYEOF'
+              from kafka import KafkaConsumer
+              import requests
+              import json
+              import time
+              
+              KAFKA_SERVERS = ["kafka-headless:9092"]
+              KAFKA_TOPIC = "raw_crypto"
+              ES_HOST = "http://elasticsearch:9200"
+              ES_INDEX = "crypto_latest"
+              
+              print("✅ Connecting to services...")
+              
+              # Test ES connection
+              resp = requests.get(f"{ES_HOST}/_cluster/health")
+              print(f"✅ Elasticsearch: {resp.json()['status']}")
+              
+              consumer = KafkaConsumer(
+                  KAFKA_TOPIC,
+                  bootstrap_servers=KAFKA_SERVERS,
+                  value_deserializer=lambda x: json.loads(x.decode('utf-8')),
+                  auto_offset_reset='earliest',  # Đọc từ đầu
+                  max_poll_records=100,
+                  consumer_timeout_ms=20000
+              )
+              
+              count = 0
+              for message in consumer:
+                  try:
+                      data = message.value
+                      doc_id = data.get('symbol', data.get('coin_id', 'unknown'))
+                      
+                      # Index using requests
+                      url = f"{ES_HOST}/{ES_INDEX}/_doc/{doc_id}"
+                      resp = requests.put(url, json=data, headers={'Content-Type': 'application/json'})
+                      
+                      if resp.status_code in [200, 201]:
+                          count += 1
+                      else:
+                          print(f"⚠️  Error: {resp.status_code} - {resp.text[:100]}")
+                  except Exception as e:
+                      print(f"⚠️  Error indexing: {e}")
+              
+              print(f"✅ Synced {count} documents to Elasticsearch")
+              PYEOF
+              
+              echo "[$(date)] Sync completed!"
+            env:
+            - name: PYTHONUNBUFFERED
+              value: "1"
+            resources:
+              requests:
+                memory: "256Mi"
+                cpu: "100m"
+              limits:
+                memory: "512Mi"
+                cpu: "200m"

@@ -900,3 +900,61 @@ MIT License - Free to use for educational purposes.
 <p align="center">
   <b>🚀 Crypto Analytics Pipeline - Big Data Project 2025</b>
 </p>
+
+---
+
+## ☁️ Deploy Lên Google Cloud Platform (GCP)
+
+Project này hỗ trợ deploy lên GCP với Google Kubernetes Engine (GKE). 
+
+### 🎓 Mới Bắt Đầu? Đọc Ngay!
+- **[DEPLOY_FROM_ZERO.md](./DEPLOY_FROM_ZERO.md)** ⭐ - Hướng dẫn từ số 0, siêu chi tiết!
+- **[QUICK_REFERENCE.md](./QUICK_REFERENCE.md)** - Commands cheat sheet
+
+### 📚 Documentation Đầy Đủ
+- **[GCP_STUDENT_MODE.md](./GCP_STUDENT_MODE.md)** ⭐ - Deploy tiết kiệm cho bài tập (93% rẻ hơn!)
+- **[COST_COMPARISON.md](./COST_COMPARISON.md)** - So sánh chi phí chi tiết
+- **[GCP_DEPLOYMENT_GUIDE.md](./GCP_DEPLOYMENT_GUIDE.md)** - Hướng dẫn đầy đủ
+- **[QUICK_START_GCP.md](./QUICK_START_GCP.md)** - Quick start guide
+- **[GCP_CHECKLIST.md](./GCP_CHECKLIST.md)** - Checklist và troubleshooting
+
+### 🚀 Quick Deploy
+
+**Standard Mode (Production):**
+```bash
+cd k8s
+deploy-gcp.bat              # Windows
+./deploy-gcp.sh             # Linux/Mac
+```
+
+**Student Mode (Bài Tập Lớn):** ⭐ RECOMMENDED
+```bash
+cd k8s
+deploy-gcp-student.bat      # Windows
+./deploy-gcp-student.sh     # Linux/Mac
+```
+
+### 💰 Cost Estimate
+- **Standard**: ~$208/tháng (Production, 3 nodes)
+- **Student Mode**: ~$15/tháng (93% rẻ hơn!) ⭐
+- **Part-time**: ~$3-5/tháng (chỉ chạy khi cần)
+- **Free Trial**: $300 credit → **FREE 20 tháng** với Student Mode! 🎉
+
+### 🌐 Architecture on GCP
+```
+GKE Cluster (3 nodes)
+  ├── Kafka (StatefulSet)
+  ├── Spark (Master + Workers)
+  ├── Elasticsearch (2 nodes)
+  ├── Kibana (LoadBalancer)
+  └── Query API (LoadBalancer)
+
+Cloud Storage
+  ├── /data/raw/
+  ├── /data/clean/
+  └── /data/aggregated/
+```
+
+Xem thêm chi tiết trong [GCP_DEPLOYMENT_GUIDE.md](./GCP_DEPLOYMENT_GUIDE.md)
+
+---

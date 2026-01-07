@@ -26,8 +26,12 @@ spec:
         volumeMounts:
         - name: es-data
           mountPath: /usr/share/elasticsearch/data
-      # Note: vm.max_map_count may need to be set at node level on cloud K8s
-      # For AKS/GKE/EKS, this is usually pre-configured
+      - name: increase-vm-max-map
+        image: busybox
+        command: ["sysctl", "-w", "vm.max_map_count=262144"]
+        securityContext:
+          privileged: true
+      # Note: vm.max_map_count is set by init container above
       containers:
       - name: elasticsearch
         image: docker.elastic.co/elasticsearch/elasticsearch:8.13.2

@@ -1,0 +1,22 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: gcs-config
+  namespace: crypto-pipeline
+data:
+  GCS_BUCKET: "crypto-analytics-data"
+  GCS_PROJECT_ID: "crypto-analytics-project"
+  # Paths in GCS
+  GCS_RAW_PATH: "gs://crypto-analytics-data/data/raw/"
+  GCS_CLEAN_PATH: "gs://crypto-analytics-data/data/clean/"
+  GCS_AGGREGATED_PATH: "gs://crypto-analytics-data/data/aggregated/"
+  # Kafka settings
+  KAFKA_BOOTSTRAP_SERVERS: "kafka-headless:9092"
+  KAFKA_RAW_TOPIC: "raw_crypto"
+  KAFKA_CLEAN_TOPIC: "clean_crypto"
+  KAFKA_ALERTS_TOPIC: "alerts"
+  # Elasticsearch settings
+  ELASTICSEARCH_HOST: "elasticsearch:9200"
+  # Other settings
+  CRAWLER_INTERVAL: "60"  # seconds
+  SPARK_MASTER: "spark://spark-master:7077"

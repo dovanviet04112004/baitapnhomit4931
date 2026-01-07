@@ -21,7 +21,9 @@ spec:
     spec:
       containers:
       - name: spark-master
-        image: bitnami/spark:3.5
+        image: apache/spark:3.5.0
+        command: ["/opt/spark/bin/spark-class"]
+        args: ["org.apache.spark.deploy.master.Master", "--host", "0.0.0.0", "--port", "7077", "--webui-port", "8080"]
         ports:
         - containerPort: 7077
           name: master
