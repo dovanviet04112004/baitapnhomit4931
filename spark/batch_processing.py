@@ -8,17 +8,19 @@ Modes:
 """
 
 import sys
+import os
+from datetime import datetime
 from pyspark.sql import SparkSession
 from pyspark.sql import functions as F
 from pyspark.sql.window import Window
 from pathlib import Path
 
-# Paths
-BASE_DIR = Path(__file__).resolve().parent.parent / "hdfs" / "data"
+# Paths - configurable via environment
+BASE_DIR = Path(os.getenv("HDFS_DATA_DIR", "/app/data"))
 RAW_PATH = str(BASE_DIR / "raw")
 CLEAN_PATH = str(BASE_DIR / "clean")
 AGG_PATH = str(BASE_DIR / "aggregated")
-CHECKPOINT_FILE = BASE_DIR / "processed_dates.txt"
+CHECKPOINT_FILE = BASE_DIR / "processed_hours.txt"
 
 
 def create_spark_session():
@@ -35,32 +37,34 @@ def create_spark_session():
         .getOrCreate()
 
 
-def get_processed_dates():
-    """Lấy danh sách các ngày đã xử lý từ checkpoint file"""
+def get_processed_hours():
+    """Lấy danh sách các date+hour đã xử lý từ checkpoint file"""
     if CHECKPOINT_FILE.exists():
         with open(CHECKPOINT_FILE, "r") as f:
             return set(line.strip() for line in f if line.strip())
     return set()
 
 
-def save_processed_dates(dates):
-    """Lưu danh sách ngày đã xử lý vào checkpoint file"""
-    existing = get_processed_dates()
-    all_dates = existing.union(set(dates))
+def save_processed_hours(date_hours):
+    """Lưu danh sách date+hour đã xử lý vào checkpoint file"""
+    existing = get_processed_hours()
+    all_hours = existing.union(set(date_hours))
     with open(CHECKPOINT_FILE, "w") as f:
-        for d in sorted(all_dates):
-            f.write(f"{d}\n")
-    print(f"   📝 Saved {len(dates)} new dates to checkpoint")
+        for dh in sorted(all_hours):
+            f.write(f"{dh}\n")
+    print(f"   📝 Saved {len(date_hours)} new date+hours to checkpoint")
 
 
-def get_raw_dates():
-    """Lấy danh sách các ngày có trong raw data"""
+def get_raw_date_hours():
+    """Lấy danh sách các date+hour có trong raw data"""
     raw_path = Path(RAW_PATH)
-    dates = []
+    date_hours = []
     for dt_folder in raw_path.glob("dt=*"):
         date_str = dt_folder.name.replace("dt=", "")
-        dates.append(date_str)
-    return sorted(dates)
+        for hr_folder in dt_folder.glob("hr=*"):
+            hour_str = hr_folder.name.replace("hr=", "").zfill(2)
+            date_hours.append(f"{date_str}_{hour_str}")
+    return sorted(date_hours)
 
 
 def get_raw_last_modified(date_str):
@@ -91,34 +95,44 @@ def get_clean_last_modified(date_str):
     return latest_time
 
 
-def get_dates_need_update():
+def get_date_hours_need_update():
     """
-    Smart detect: Tìm các ngày cần update dựa trên timestamp
-    - Raw data mới hơn clean data → cần update
-    - Clean data chưa có → cần update
+    Smart detect: Tìm các date+hour cần update dựa trên checkpoint
+    - Có trong raw nhưng chưa trong processed → cần update
+    - Luôn reprocess toàn bộ giờ của ngày hiện tại (để clean/aggregated cập nhật liên tục)
     """
-    raw_dates = get_raw_dates()
-    dates_to_update = []
-    
-    for date_str in raw_dates:
-        raw_mtime = get_raw_last_modified(date_str)
-        clean_mtime = get_clean_last_modified(date_str)
-        
-        if raw_mtime > clean_mtime:
-            dates_to_update.append(date_str)
-    
-    return dates_to_update
+    raw_date_hours = get_raw_date_hours()
+    processed = get_processed_hours()
+
+    # Các giờ mới chưa xử lý
+    update_set = {dh for dh in raw_date_hours if dh not in processed}
+
+    # Xác định ngày hiện tại theo local time trong container
+    today_str = datetime.now().date().isoformat()
+    # Lấy toàn bộ giờ thuộc ngày hiện tại có trong raw
+    today_hours = {dh for dh in raw_date_hours if dh.startswith(f"{today_str}_")}
+
+    if today_hours:
+        # Luôn đưa toàn bộ giờ của hôm nay vào danh sách reprocess
+        update_set.update(today_hours)
+        print(f"   🔁 Reprocessing current day: {today_str} ({len(today_hours)} hours)")
+
+    # Trả về danh sách đã sắp xếp để ổn định log
+    return sorted(update_set)
 
 
-def read_raw_data(spark, dates_to_process=None):
-    """Đọc raw data từ HDFS, có thể filter theo ngày"""
+def read_raw_data(spark, date_hours_to_process=None):
+    """Đọc raw data từ HDFS, có thể filter theo date+hour"""
     print(f"📂 Reading raw data from {RAW_PATH}")
     
-    if dates_to_process:
-        # Chỉ đọc các ngày cần xử lý
-        paths = [f"{RAW_PATH}/dt={d}/*/*.jsonl" for d in dates_to_process]
+    if date_hours_to_process:
+        # Chỉ đọc các date+hour cần xử lý
+        paths = []
+        for dh in date_hours_to_process:
+            date_str, hour_str = dh.split("_")
+            paths.append(f"{RAW_PATH}/dt={date_str}/hr={hour_str}/*.jsonl")
         df = spark.read.json(paths)
-        print(f"   📅 Processing dates: {', '.join(dates_to_process)}")
+        print(f"   📅 Processing {len(date_hours_to_process)} date+hours")
     else:
         df = spark.read.json(f"{RAW_PATH}/*/*/*.jsonl")
     
@@ -127,6 +141,15 @@ def read_raw_data(spark, dates_to_process=None):
     df = df.withColumn("date", F.to_date("crawl_ts"))
     df = df.withColumn("hour", F.hour("crawl_ts"))
     df = df.withColumn("minute", F.minute("crawl_ts"))
+    
+    # Tính price_change_percentage_24h nếu không có (từ current_price và low_24h)
+    if "price_change_percentage_24h" not in df.columns:
+        df = df.withColumn(
+            "price_change_percentage_24h",
+            F.when(F.col("low_24h") > 0, 
+                   ((F.col("current_price") - F.col("low_24h")) / F.col("low_24h")) * 100
+            ).otherwise(0.0)
+        )
     
     record_count = df.count()
     print(f"✅ Loaded {record_count:,} records")
@@ -626,25 +649,26 @@ def main():
     print(f"   Mode: {mode.upper()}")
     print("=" * 60)
     
-    # Determine dates to process
-    all_raw_dates = get_raw_dates()
+    # Determine date+hours to process
+    all_raw_date_hours = get_raw_date_hours()
     
     if mode == "incremental":
         INCREMENTAL_MODE = True
-        # Smart detect: tìm ngày có raw data mới hơn clean data
-        dates_to_process = get_dates_need_update()
-        if not dates_to_process:
+        # Smart detect: tìm date+hour chưa được xử lý
+        date_hours_to_process = get_date_hours_need_update()
+        if not date_hours_to_process:
             print("\n✅ No new data to process. All data is up-to-date!")
-            print(f"   Total dates in raw: {len(all_raw_dates)}")
+            print(f"   Total date+hours in raw: {len(all_raw_date_hours)}")
             return
-        print(f"\n📅 Dates with new data: {', '.join(dates_to_process)}")
-        print(f"   (Detected by comparing raw vs clean timestamps)")
+        print(f"\n📅 New data found: {len(date_hours_to_process)} date+hours")
+        print(f"   First few: {', '.join(date_hours_to_process[:5])}")
         # Xóa partition cũ để ghi mới
-        delete_existing_partitions(dates_to_process)
+        dates_to_delete = list(set([dh.split("_")[0] for dh in date_hours_to_process]))
+        delete_existing_partitions(dates_to_delete)
     else:
         INCREMENTAL_MODE = False
-        dates_to_process = all_raw_dates
-        print(f"\n📅 Processing ALL dates: {', '.join(dates_to_process)}")
+        date_hours_to_process = all_raw_date_hours
+        print(f"\n📅 Processing ALL {len(date_hours_to_process)} date+hours")
     
     # Create output directories
     Path(CLEAN_PATH).mkdir(parents=True, exist_ok=True)
@@ -655,32 +679,32 @@ def main():
     spark.sparkContext.setLogLevel("WARN")
     
     try:
-        # Read raw data (only dates to process)
-        df = read_raw_data(spark, dates_to_process if INCREMENTAL_MODE else None)
+        # Read raw data (only date+hours to process)
+        df = read_raw_data(spark, date_hours_to_process if INCREMENTAL_MODE else None)
         
         # ===== BASIC ANALYTICS JOBS (1-6) =====
         job_daily_price_stats(df)
         spark.catalog.clearCache()
         
-        df = read_raw_data(spark, dates_to_process if INCREMENTAL_MODE else None)
+        df = read_raw_data(spark, date_hours_to_process if INCREMENTAL_MODE else None)
         job_top_pumps_dumps(df)
         job_market_cap_distribution(df)
         spark.catalog.clearCache()
         
-        df = read_raw_data(spark, dates_to_process if INCREMENTAL_MODE else None)
+        df = read_raw_data(spark, date_hours_to_process if INCREMENTAL_MODE else None)
         job_top_coin_trends(df)
         job_hourly_volume(df)
         job_btc_correlation(df)
         spark.catalog.clearCache()
         
         # ===== ADVANCED ANALYTICS JOBS (7-13) =====
-        df = read_raw_data(spark, dates_to_process if INCREMENTAL_MODE else None)
+        df = read_raw_data(spark, date_hours_to_process if INCREMENTAL_MODE else None)
         job_coin_volume_ranking(df)
         job_pump_dump_alerts(df)
         job_btc_dominance(df)
         spark.catalog.clearCache()
         
-        df = read_raw_data(spark, dates_to_process if INCREMENTAL_MODE else None)
+        df = read_raw_data(spark, date_hours_to_process if INCREMENTAL_MODE else None)
         job_price_heatmap(df)
         job_market_sentiment(df)
         job_whale_detection(df)
@@ -688,14 +712,14 @@ def main():
         spark.catalog.clearCache()
         
         # Create clean data
-        df = read_raw_data(spark, dates_to_process if INCREMENTAL_MODE else None)
+        df = read_raw_data(spark, date_hours_to_process if INCREMENTAL_MODE else None)
         create_clean_data(df)
         
-        # Save processed dates to checkpoint
-        save_processed_dates(dates_to_process)
+        # Save processed date+hours to checkpoint
+        save_processed_hours(date_hours_to_process)
         
         print("\n" + "=" * 60)
-        print(f"✅ ALL 13 BATCH JOBS COMPLETED! ({len(dates_to_process)} days processed)")
+        print(f"✅ ALL 13 BATCH JOBS COMPLETED! ({len(date_hours_to_process)} date+hours processed)")
         print("=" * 60)
         
         # Show sample results

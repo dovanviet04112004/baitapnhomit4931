@@ -1,0 +1,55 @@
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: spark-to-es
+  namespace: crypto-pipeline
+spec:
+  schedule: "*/2 * * * *"  # Mỗi 2 phút
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 1
+  concurrencyPolicy: Forbid
+  suspend: false
+  
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      template:
+        spec:
+          restartPolicy: OnFailure
+          containers:
+          - name: spark-to-es
+            image: gcr.io/crypto-project-bigdata/spark-jobs:v2
+            imagePullPolicy: IfNotPresent
+            command: ["/opt/spark/bin/spark-submit"]
+            args:
+              - --master
+              - local[2]
+              - /app/spark_to_elasticsearch.py
+              - --all
+            
+            env:
+            - name: ES_HOST
+              value: "http://elasticsearch:9200"
+            - name: HDFS_DATA_DIR
+              value: "/app/data"
+            - name: PYTHONUNBUFFERED
+              value: "1"
+            
+            volumeMounts:
+            - name: hdfs-data
+              mountPath: /app/data
+              readOnly: true
+            
+            resources:
+              requests:
+                memory: "1Gi"
+                cpu: "200m"
+              limits:
+                memory: "2Gi"
+                cpu: "1000m"
+          
+          volumes:
+          - name: hdfs-data
+            persistentVolumeClaim:
+              claimName: hdfs-data-pvc

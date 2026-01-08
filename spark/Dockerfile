@@ -17,7 +17,7 @@ WORKDIR /app
 
 # Set environment variables
 ENV PYTHONUNBUFFERED=1
-ENV SPARK_HOME=/opt/bitnami/spark
+ENV SPARK_HOME=/opt/spark
 
 # Default command
-CMD ["spark-submit", "--master", "local[*]", "batch_processing.py"]
+CMD ["/opt/spark/bin/spark-submit", "--master", "local[*]", "simple_analytics.py"]

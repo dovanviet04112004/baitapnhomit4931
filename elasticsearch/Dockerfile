@@ -9,7 +9,8 @@ RUN pip install --no-cache-dir \
     fastapi==0.100.0 \
     uvicorn[standard]==0.23.0 \
     elasticsearch==8.13.2 \
-    python-dotenv
+    python-dotenv \
+    requests
 
 # Copy application files
 COPY elasticsearch_queries.py .

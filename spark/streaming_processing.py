@@ -15,10 +15,11 @@ from pyspark.sql import functions as F
 from pyspark.sql.types import StructType, StructField, StringType, DoubleType, LongType, TimestampType
 from pathlib import Path
 import json
+import os
 
 # Kafka config
-KAFKA_BOOTSTRAP = "localhost:19092,localhost:19093,localhost:19094"
-INPUT_TOPIC = "raw_crypto"
+KAFKA_BOOTSTRAP = os.getenv("KAFKA_BOOTSTRAP_SERVERS", "localhost:19092,localhost:19093,localhost:19094")
+INPUT_TOPIC = os.getenv("KAFKA_TOPIC", "crypto-raw")
 ALERTS_TOPIC = "alerts"
 CLEAN_TOPIC = "clean_crypto"
 

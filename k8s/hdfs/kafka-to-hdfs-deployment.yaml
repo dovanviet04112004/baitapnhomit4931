@@ -1,0 +1,55 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kafka-to-hdfs
+  namespace: crypto-pipeline
+  labels:
+    app: kafka-to-hdfs
+    component: ingestion
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: kafka-to-hdfs
+  template:
+    metadata:
+      labels:
+        app: kafka-to-hdfs
+        component: ingestion
+    spec:
+      # Disable service links to avoid env var conflicts
+      enableServiceLinks: false
+      
+      containers:
+      - name: kafka-to-hdfs
+        image: gcr.io/crypto-project-bigdata/crypto-kafka-to-hdfs:student
+        # Image contains: kafka_to_hdfs_raw.py + kafka-python
+        # Build: cd hdfs && docker build -t yourusername/crypto-kafka-to-hdfs:v1.0.0 .
+        imagePullPolicy: Always
+        
+        env:
+        - name: KAFKA_BOOTSTRAP_SERVERS
+          value: "kafka:9092"
+        - name: KAFKA_TOPIC
+          value: "crypto-raw"
+        
+        volumeMounts:
+        - name: hdfs-data
+          mountPath: /app/data
+        
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "100m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+      
+      volumes:
+      - name: hdfs-data
+        persistentVolumeClaim:
+          claimName: hdfs-data-pvc
+      - name: script
+        configMap:
+          name: kafka-to-hdfs-scri

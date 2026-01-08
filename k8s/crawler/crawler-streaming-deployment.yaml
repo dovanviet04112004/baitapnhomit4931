@@ -1,0 +1,53 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: crawler-streaming
+  namespace: crypto-pipeline
+  labels:
+    app: crawler-streaming
+    component: ingestion
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: crawler-streaming
+  template:
+    metadata:
+      labels:
+        app: crawler-streaming
+        component: ingestion
+    spec:
+      enableServiceLinks: false
+      
+      containers:
+      - name: crawler
+        image: gcr.io/crypto-project-bigdata/crypto-crawler:student
+        # Image contains: crypto_crawler_streaming.py + requests + kafka-python
+        # Build: cd crawl && docker build -t yourusername/crypto-crawler:v1.0.0 .
+        imagePullPolicy: Always
+        
+        env:
+        - name: KAFKA_BOOTSTRAP_SERVERS
+          value: "kafka:9092"
+        - name: KAFKA_TOPIC
+          value: "crypto-raw"
+        - name: CRAWL_INTERVAL_SECONDS
+          value: "60"
+        - name: COINGECKO_API_URL
+          value: "https://api.coingecko.com/api/v3"
+        
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
+      
+      volumes:
+      - name: script
+        configMap:
+          name: crawler-streaming-script
+      
+      

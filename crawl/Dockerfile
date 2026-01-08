@@ -14,8 +14,11 @@ RUN pip install --no-cache-dir google-cloud-storage
 # Copy application files
 COPY *.py .
 
+# Create output directory
+RUN mkdir -p output
+
 # Set environment variables
 ENV PYTHONUNBUFFERED=1
 
-# Default command
-CMD ["python", "crypto_crawler.py"]
+# Default command: run streaming crawler
+CMD ["python", "crypto_crawler_streaming.py"]

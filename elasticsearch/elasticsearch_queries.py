@@ -18,6 +18,7 @@ Usage:
 
 import requests
 import json
+import os
 from datetime import datetime, timedelta
 from typing import List, Dict, Optional, Any
 
@@ -25,8 +26,8 @@ from typing import List, Dict, Optional, Any
 class CryptoQueries:
     """Query library cho Crypto Elasticsearch indices"""
     
-    def __init__(self, es_host: str = "http://localhost:9200"):
-        self.es_host = es_host
+    def __init__(self, es_host: str = None):
+        self.es_host = es_host or os.getenv("ES_HOST", "http://localhost:9200")
         self.index_latest = "crypto_latest"
         self.index_history = "crypto_history"
         self.index_alerts = "alerts"

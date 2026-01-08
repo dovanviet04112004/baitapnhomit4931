@@ -7,11 +7,12 @@ import json
 import os
 from datetime import datetime
 from pathlib import Path
+from typing import Optional
 
 from kafka import KafkaConsumer
 
-KAFKA_BOOTSTRAP_SERVERS = ["localhost:19092", "localhost:19093", "localhost:19094"]
-KAFKA_TOPIC = "raw_crypto"
+KAFKA_BOOTSTRAP_SERVERS = os.getenv("KAFKA_BOOTSTRAP_SERVERS", "localhost:19092,localhost:19093,localhost:19094").split(",")
+KAFKA_TOPIC = os.getenv("KAFKA_TOPIC", "crypto-raw")
 
 # Base path for "HDFS" on local fs (hdfs/data/raw/)
 BASE_DATA_DIR = Path(__file__).resolve().parent / "data" / "raw"
@@ -30,7 +31,7 @@ def open_partition_file(dt: str, hour: str) -> Path:
     return part_dir / "data.jsonl"
 
 
-def main(max_messages: int | None = None) -> None:
+def main(max_messages: Optional[int] = None) -> None:
     BASE_DATA_DIR.mkdir(parents=True, exist_ok=True)
 
     consumer = KafkaConsumer(
@@ -46,9 +47,9 @@ def main(max_messages: int | None = None) -> None:
     print(f"✅ Connected to Kafka, consuming from topic {KAFKA_TOPIC}")
     print(f"📂 Writing partitions under {BASE_DATA_DIR}")
 
-    current_dt = None
-    current_hr = None
-    current_path: Path | None = None
+    current_dt: Optional[str] = None
+    current_hr: Optional[str] = None
+    current_path: Optional[Path] = None
     current_file = None
 
     def rotate_if_needed(dt_str: str, hr_str: str):
@@ -95,13 +96,14 @@ def main(max_messages: int | None = None) -> None:
             rotate_if_needed(dt_src, hour)
             assert current_file is not None
             current_file.write(json.dumps(value, ensure_ascii=False) + "\n")
+            current_file.flush()  # Flush immediately
             count += 1
 
             if max_messages is not None and count >= max_messages:
                 print(f"✅ Reached max_messages={max_messages}, stopping.")
                 break
 
-            if count % 500 == 0:
+            if count % 10 == 0:  # Print more frequently
                 print(f"   ... written {count} records so far ...")
 
     finally:
@@ -112,5 +114,5 @@ def main(max_messages: int | None = None) -> None:
 
 
 if __name__ == "__main__":
-    # For lab: read everything currently in topic once
-    main()
+    # Run forever, consuming from Kafka continuously
+    main()  # main() now runs forever with the infinite for loop

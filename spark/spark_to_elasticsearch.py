@@ -2,35 +2,36 @@
 Spark to Elasticsearch - Index data từ HDFS vào Elasticsearch
 
 Indices:
-  - crypto_latest: Giá coin mới nhất (upsert theo symbol)
-  - crypto_history: Dữ liệu giá lịch sử theo giờ
-  - alerts: Cảnh báo pump/dump từ streaming
+  - crypto_minute_trend: Giá coin theo phút
+  - crypto_top_movers: Top movers theo ngày
+  - crypto_btc_trend: BTC trend theo giờ
 
 Usage:
   python spark_to_elasticsearch.py --all          # Index tất cả
-  python spark_to_elasticsearch.py --latest       # Chỉ index crypto_latest
-  python spark_to_elasticsearch.py --history      # Chỉ index crypto_history
-  python spark_to_elasticsearch.py --alerts       # Chỉ index alerts
+  python spark_to_elasticsearch.py --minute       # Chỉ index crypto_minute_trend
+  python spark_to_elasticsearch.py --top-movers   # Chỉ index crypto_top_movers
+  python spark_to_elasticsearch.py --btc-trend    # Chỉ index crypto_btc_trend
 """
 
 import sys
 import json
 import requests
+import os
 from datetime import datetime
 from pathlib import Path
 from pyspark.sql import SparkSession
 from pyspark.sql import functions as F
 
-# Paths
-BASE_DIR = Path(__file__).resolve().parent.parent / "hdfs" / "data"
-CLEAN_PATH = str(BASE_DIR / "clean")
-AGG_PATH = str(BASE_DIR / "aggregated")
+# Paths - Support environment variables
+HDFS_DATA_DIR = os.getenv("HDFS_DATA_DIR", str(Path(__file__).resolve().parent.parent / "hdfs" / "data"))
+CLEAN_PATH = str(Path(HDFS_DATA_DIR) / "clean")
+AGG_PATH = str(Path(HDFS_DATA_DIR) / "aggregated")
 
 # Elasticsearch config
-ES_HOST = "http://localhost:9200"
-ES_INDEX_LATEST = "crypto_latest"
-ES_INDEX_HISTORY = "crypto_history"
-ES_INDEX_ALERTS = "alerts"
+ES_HOST = os.getenv("ES_HOST", "http://localhost:9200")
+ES_INDEX_MINUTE = "crypto_minute_trend"
+ES_INDEX_TOP_MOVERS = "crypto_top_movers"
+ES_INDEX_BTC_TREND = "crypto_btc_trend"
 
 # Batch size for bulk indexing
 BULK_SIZE = 500
@@ -95,7 +96,21 @@ def create_indices():
     print("="*60)
     
     indices = {
-        ES_INDEX_LATEST: {
+        ES_INDEX_MINUTE: {
+             "settings": {
+                "number_of_shards": 1,
+                "number_of_replicas": 0
+            },
+            "mappings": {
+                "properties": {
+                    "symbol": {"type": "keyword"},
+                    "timestamp": {"type": "date"},
+                    "time_minute": {"type": "keyword"},
+                    "avg_price": {"type": "double"}
+                }
+            }
+        },
+        ES_INDEX_TOP_MOVERS: {
             "settings": {
                 "number_of_shards": 1,
                 "number_of_replicas": 0
@@ -104,66 +119,28 @@ def create_indices():
                 "properties": {
                     "symbol": {"type": "keyword"},
                     "name": {"type": "text", "fields": {"keyword": {"type": "keyword"}}},
-                    "price_usd": {"type": "double"},
-                    "market_cap": {"type": "double"},
-                    "volume_24h": {"type": "double"},
-                    "percent_change_1h": {"type": "double"},
-                    "percent_change_24h": {"type": "double"},
-                    "percent_change_7d": {"type": "double"},
-                    "circulating_supply": {"type": "double"},
-                    "total_supply": {"type": "double"},
-                    "rank": {"type": "integer"},
+                    "current_price": {"type": "double"},
+                    "price_change_percentage_24h": {"type": "double"},
+                    "market_cap": {"type": "long"},
+                    "total_volume": {"type": "long"},
+                    "market_cap_rank": {"type": "integer"},
+                    "type": {"type": "keyword"},  # "gainer" hoặc "loser"
+                    "rank": {"type": "integer"},  # 1-10
                     "last_updated": {"type": "date"}
                 }
             }
         },
-        ES_INDEX_HISTORY: {
+        ES_INDEX_BTC_TREND: {
             "settings": {
                 "number_of_shards": 1,
                 "number_of_replicas": 0
             },
             "mappings": {
                 "properties": {
-                    "symbol": {"type": "keyword"},
-                    "name": {"type": "text", "fields": {"keyword": {"type": "keyword"}}},
                     "date": {"type": "date", "format": "yyyy-MM-dd"},
                     "hour": {"type": "integer"},
-                    "price_usd": {"type": "double"},
-                    "price_open": {"type": "double"},
-                    "price_high": {"type": "double"},
-                    "price_low": {"type": "double"},
-                    "price_close": {"type": "double"},
-                    "market_cap": {"type": "double"},
-                    "volume_24h": {"type": "double"},
-                    "percent_change_24h": {"type": "double"},
-                    "rank": {"type": "integer"},
-                    "record_count": {"type": "integer"}
-                }
-            }
-        },
-        ES_INDEX_ALERTS: {
-            "settings": {
-                "number_of_shards": 1,
-                "number_of_replicas": 0
-            },
-            "mappings": {
-                "properties": {
-                    "alert_id": {"type": "keyword"},
-                    "symbol": {"type": "keyword"},
-                    "name": {"type": "text", "fields": {"keyword": {"type": "keyword"}}},
-                    "alert_type": {"type": "keyword"},
-                    "severity": {"type": "keyword"},
-                    "price_change_percent": {"type": "double"},
-                    "volume_change_percent": {"type": "double"},
-                    "current_price": {"type": "double"},
-                    "previous_price": {"type": "double"},
-                    "current_volume": {"type": "double"},
-                    "previous_volume": {"type": "double"},
-                    "threshold_exceeded": {"type": "double"},
-                    "message": {"type": "text"},
-                    "detected_at": {"type": "date"},
-                    "window_start": {"type": "date"},
-                    "window_end": {"type": "date"}
+                    "avg_price": {"type": "double"},
+                    "timestamp": {"type": "date"}
                 }
             }
         }
@@ -229,105 +206,153 @@ def bulk_index(index_name, documents):
         return 0
 
 
-def index_crypto_latest(spark):
-    """
-    Index giá coin mới nhất vào crypto_latest
-    Lấy record mới nhất của mỗi symbol từ clean data
-    """
-    print("\n" + "="*60)
-    print("📊 INDEXING CRYPTO_LATEST")
-    print("="*60)
+# def index_crypto_latest(spark):
+#     """
+#     Index giá coin mới nhất vào crypto_latest
+#     Lấy record mới nhất của mỗi symbol từ clean data
+#     """
+#     print("\n" + "="*60)
+#     print("📊 INDEXING CRYPTO_LATEST")
+#     print("="*60)
     
-    # Đọc toàn bộ clean data
-    clean_path = Path(CLEAN_PATH)
-    if not clean_path.exists():
-        print("❌ Clean data không tồn tại!")
-        return
+#     # Đọc toàn bộ clean data
+#     clean_path = Path(CLEAN_PATH)
+#     if not clean_path.exists():
+#         print("❌ Clean data không tồn tại!")
+#         return
     
-    df = spark.read.parquet(CLEAN_PATH)
-    print(f"   📂 Đọc {df.count():,} records từ clean data")
+#     df = spark.read.parquet(CLEAN_PATH)
+#     print(f"   📂 Đọc {df.count():,} records từ clean data")
     
-    # Lấy record mới nhất của mỗi symbol (dùng window để lấy row_number)
-    # Cột thời gian trong clean data là "crawl_ts"
-    from pyspark.sql.window import Window
-    window_spec = Window.partitionBy("symbol").orderBy(F.col("crawl_ts").desc())
+#     # Lấy record mới nhất của mỗi symbol (dùng window để lấy row_number)
+#     # Cột thời gian trong clean data là "crawl_ts"
+#     from pyspark.sql.window import Window
+#     window_spec = Window.partitionBy("symbol").orderBy(F.col("crawl_ts").desc())
     
-    latest_df = df.withColumn("rn", F.row_number().over(window_spec)) \
-        .filter(F.col("rn") == 1) \
-        .drop("rn")
+#     latest_df = df.withColumn("rn", F.row_number().over(window_spec)) \
+#         .filter(F.col("rn") == 1) \
+#         .drop("rn")
     
-    # Convert to list of dicts
-    rows = latest_df.collect()
-    documents = []
-    for row in rows:
-        row_dict = row.asDict()
-        doc = {
-            "_id": row_dict.get("symbol"),  # Dùng symbol làm ID để upsert
-            "symbol": row_dict.get("symbol"),
-            "name": row_dict.get("name"),
-            "price_usd": float(row_dict.get("current_price", 0) or 0),
-            "market_cap": float(row_dict.get("market_cap", 0) or 0),
-            "volume_24h": float(row_dict.get("total_volume", 0) or 0),
-            "percent_change_1h": 0,  # Không có trong clean data
-            "percent_change_24h": float(row_dict.get("price_change_percentage_24h", 0) or 0),
-            "percent_change_7d": 0,  # Không có trong clean data
-            "circulating_supply": float(row_dict.get("circulating_supply", 0) or 0),
-            "total_supply": 0,
-            "rank": int(row_dict.get("market_cap_rank", 0) or 0),
-            "last_updated": _parse_timestamp(row_dict.get("crawl_ts"))
-        }
-        documents.append(doc)
+#     # Convert to list of dicts
+#     rows = latest_df.collect()
+#     documents = []
+#     for row in rows:
+#         row_dict = row.asDict()
+#         doc = {
+#             "_id": row_dict.get("symbol"),  # Dùng symbol làm ID để upsert
+#             "symbol": row_dict.get("symbol"),
+#             "name": row_dict.get("name"),
+#             "price_usd": float(row_dict.get("current_price", 0) or 0),
+#             "market_cap": float(row_dict.get("market_cap", 0) or 0),
+#             "volume_24h": float(row_dict.get("total_volume", 0) or 0),
+#             "percent_change_1h": 0,  # Không có trong clean data
+#             "percent_change_24h": float(row_dict.get("price_change_percentage_24h", 0) or 0),
+#             "percent_change_7d": 0,  # Không có trong clean data
+#             "circulating_supply": float(row_dict.get("circulating_supply", 0) or 0),
+#             "total_supply": 0,
+#             "rank": int(row_dict.get("market_cap_rank", 0) or 0),
+#             "last_updated": _parse_timestamp(row_dict.get("crawl_ts"))
+#         }
+#         documents.append(doc)
     
-    # Bulk index
-    indexed = 0
-    for i in range(0, len(documents), BULK_SIZE):
-        batch = documents[i:i+BULK_SIZE]
-        indexed += bulk_index(ES_INDEX_LATEST, batch)
-        print(f"   📤 Indexed {indexed}/{len(documents)} documents...")
+#     # Bulk index
+#     indexed = 0
+#     for i in range(0, len(documents), BULK_SIZE):
+#         batch = documents[i:i+BULK_SIZE]
+#         indexed += bulk_index(ES_INDEX_LATEST, batch)
+#         print(f"   📤 Indexed {indexed}/{len(documents)} documents...")
     
-    print(f"   ✅ Hoàn thành! Indexed {indexed} coins vào {ES_INDEX_LATEST}")
+#     print(f"   ✅ Hoàn thành! Indexed {indexed} coins vào {ES_INDEX_LATEST}")
 
 
-def index_crypto_history(spark):
+# def index_crypto_history(spark):
+#     """
+#     Index dữ liệu giá lịch sử vào crypto_history
+#     Dùng daily_price_stats (có OHLC data)
+#     """
+#     print("\n" + "="*60)
+#     print("📈 INDEXING CRYPTO_HISTORY")
+#     print("="*60)
+    
+#     # Đọc daily stats từ aggregated
+#     daily_path = Path(AGG_PATH) / "daily_price_stats"
+#     if not daily_path.exists():
+#         print("❌ Daily stats không tồn tại!")
+#         return
+    
+#     df = spark.read.parquet(str(daily_path))
+#     total_count = df.count()
+#     print(f"   📂 Đọc {total_count:,} records từ daily_price_stats")
+    
+#     # Collect và index
+#     rows = df.collect()
+#     documents = []
+#     for row in rows:
+#         row_dict = row.asDict()
+#         # Tạo unique ID: symbol_date
+#         doc_id = f"{row_dict.get('symbol')}_{row_dict.get('date')}"
+#         doc = {
+#             "_id": doc_id,
+#             "symbol": row_dict.get("symbol"),
+#             "name": row_dict.get("name"),
+#             "date": str(row_dict.get("date")),
+#             "hour": 0,  # Daily data, không có hour
+#             "price_open": float(row_dict.get("price_open", 0) or 0),
+#             "price_high": float(row_dict.get("price_high", 0) or 0),
+#             "price_low": float(row_dict.get("price_low", 0) or 0),
+#             "price_close": float(row_dict.get("price_close", 0) or 0),
+#             "price_usd": float(row_dict.get("avg_price", 0) or 0),
+#             "volume_24h": float(row_dict.get("total_volume", 0) or 0),
+#             "market_cap": float(row_dict.get("avg_market_cap", 0) or 0),
+#             "record_count": int(row_dict.get("record_count", 0) or 0)
+#         }
+#         documents.append(doc)
+    
+#     # Bulk index
+#     indexed = 0
+#     for i in range(0, len(documents), BULK_SIZE):
+#         batch = documents[i:i+BULK_SIZE]
+#         indexed += bulk_index(ES_INDEX_HISTORY, batch)
+#         if (i // BULK_SIZE) % 10 == 0:
+#             print(f"   📤 Indexed {indexed}/{len(documents)} documents...")
+    
+#     print(f"   ✅ Hoàn thành! Indexed {indexed} records vào {ES_INDEX_HISTORY}")
+
+
+def index_minute_trend(spark):
     """
-    Index dữ liệu giá lịch sử vào crypto_history
-    Dùng daily_price_stats (có OHLC data)
+    Index dữ liệu trend theo phút vào crypto_minute_trend
+    Dùng aggregated/minute_trend
     """
     print("\n" + "="*60)
-    print("📈 INDEXING CRYPTO_HISTORY")
+    print("⏱️ INDEXING MINUTE TREND")
     print("="*60)
     
-    # Đọc daily stats từ aggregated
-    daily_path = Path(AGG_PATH) / "daily_price_stats"
-    if not daily_path.exists():
-        print("❌ Daily stats không tồn tại!")
+    trend_path = Path(AGG_PATH) / "minute_trend"
+    if not trend_path.exists():
+        print("❌ Minute trend data không tồn tại ở:" + str(trend_path))
         return
     
-    df = spark.read.parquet(str(daily_path))
+    df = spark.read.parquet(str(trend_path))
     total_count = df.count()
-    print(f"   📂 Đọc {total_count:,} records từ daily_price_stats")
+    print(f"   📂 Đọc {total_count:,} records từ minute_trend")
     
+    if total_count == 0:
+        return
+
     # Collect và index
     rows = df.collect()
     documents = []
     for row in rows:
         row_dict = row.asDict()
-        # Tạo unique ID: symbol_date
-        doc_id = f"{row_dict.get('symbol')}_{row_dict.get('date')}"
+        # ID: symbol_timestamp
+        doc_id = f"{row_dict.get('symbol')}_{row_dict.get('time_minute')}"
         doc = {
             "_id": doc_id,
             "symbol": row_dict.get("symbol"),
-            "name": row_dict.get("name"),
-            "date": str(row_dict.get("date")),
-            "hour": 0,  # Daily data, không có hour
-            "price_open": float(row_dict.get("price_open", 0) or 0),
-            "price_high": float(row_dict.get("price_high", 0) or 0),
-            "price_low": float(row_dict.get("price_low", 0) or 0),
-            "price_close": float(row_dict.get("price_close", 0) or 0),
-            "price_usd": float(row_dict.get("avg_price", 0) or 0),
-            "volume_24h": float(row_dict.get("total_volume", 0) or 0),
-            "market_cap": float(row_dict.get("avg_market_cap", 0) or 0),
-            "record_count": int(row_dict.get("record_count", 0) or 0)
+            "time_minute": row_dict.get("time_minute"),
+            "timestamp": _parse_timestamp(row_dict.get("timestamp")),
+            "avg_price": float(row_dict.get("avg_price", 0) or 0)
         }
         documents.append(doc)
     
@@ -335,76 +360,189 @@ def index_crypto_history(spark):
     indexed = 0
     for i in range(0, len(documents), BULK_SIZE):
         batch = documents[i:i+BULK_SIZE]
-        indexed += bulk_index(ES_INDEX_HISTORY, batch)
-        if (i // BULK_SIZE) % 10 == 0:
-            print(f"   📤 Indexed {indexed}/{len(documents)} documents...")
+        indexed += bulk_index(ES_INDEX_MINUTE, batch)
     
-    print(f"   ✅ Hoàn thành! Indexed {indexed} records vào {ES_INDEX_HISTORY}")
+    print(f"   ✅ Hoàn thành! Indexed {indexed} records vào {ES_INDEX_MINUTE}")
 
 
-def index_alerts(spark):
+def index_top_movers(spark):
     """
-    Index cảnh báo pump/dump vào alerts
-    Đọc từ aggregated/pump_dump_alerts hoặc clean_alerts
+    Index Top Gainers + Top Losers vào crypto_top_movers
+    Dùng aggregated/top_gainers và aggregated/top_losers
     """
     print("\n" + "="*60)
-    print("🚨 INDEXING ALERTS")
+    print("🏆 INDEXING TOP MOVERS (GAINERS + LOSERS)")
     print("="*60)
     
-    # Đọc pump_dump_alerts từ aggregated
-    alerts_path = Path(AGG_PATH) / "pump_dump_alerts"
-    if not alerts_path.exists():
-        print("⚠️  Chưa có alerts data. Sẽ tạo alerts từ extreme_movements.")
-        
-        # Đọc extreme_movements thay thế
-        extreme_path = Path(AGG_PATH) / "extreme_movements"
-        if not extreme_path.exists():
-            print("❌ Không có extreme_movements data!")
-            return
-        
-        df = spark.read.parquet(str(extreme_path))
-        df = df.withColumn("alert_type", 
-            F.when(F.col("percent_change_24h") > 0, "PUMP")
-            .otherwise("DUMP")
-        ).withColumn("severity",
-            F.when(F.abs(F.col("percent_change_24h")) > 50, "CRITICAL")
-            .when(F.abs(F.col("percent_change_24h")) > 20, "HIGH")
-            .otherwise("MEDIUM")
-        )
-    else:
-        df = spark.read.parquet(str(alerts_path))
+    documents = []
     
+    # 1. Đọc Top Gainers
+    gainers_path = Path(AGG_PATH) / "top_gainers"
+    if gainers_path.exists():
+        df_gainers = spark.read.parquet(str(gainers_path))
+        rows = df_gainers.collect()
+        for idx, row in enumerate(rows, 1):
+            row_dict = row.asDict()
+            doc = {
+                "_id": f"gainer_{idx}",
+                "symbol": row_dict.get("symbol"),
+                "name": row_dict.get("name"),
+                "current_price": float(row_dict.get("current_price", 0) or 0),
+                "price_change_percentage_24h": float(row_dict.get("price_change_percentage_24h", 0) or 0),
+                "market_cap": int(row_dict.get("market_cap", 0) or 0),
+                "total_volume": int(row_dict.get("total_volume", 0) or 0),
+                "market_cap_rank": int(row_dict.get("market_cap_rank", 0) or 0),
+                "type": "gainer",
+                "rank": idx,
+                "last_updated": _parse_timestamp(row_dict.get("crawl_time"))
+            }
+            documents.append(doc)
+        print(f"   📈 Đọc {len(rows)} Top Gainers")
+    
+    # 2. Đọc Top Losers
+    losers_path = Path(AGG_PATH) / "top_losers"
+    if losers_path.exists():
+        df_losers = spark.read.parquet(str(losers_path))
+        rows = df_losers.collect()
+        for idx, row in enumerate(rows, 1):
+            row_dict = row.asDict()
+            doc = {
+                "_id": f"loser_{idx}",
+                "symbol": row_dict.get("symbol"),
+                "name": row_dict.get("name"),
+                "current_price": float(row_dict.get("current_price", 0) or 0),
+                "price_change_percentage_24h": float(row_dict.get("price_change_percentage_24h", 0) or 0),
+                "market_cap": int(row_dict.get("market_cap", 0) or 0),
+                "total_volume": int(row_dict.get("total_volume", 0) or 0),
+                "market_cap_rank": int(row_dict.get("market_cap_rank", 0) or 0),
+                "type": "loser",
+                "rank": idx,
+                "last_updated": _parse_timestamp(row_dict.get("crawl_time"))
+            }
+            documents.append(doc)
+        print(f"   📉 Đọc {len(rows)} Top Losers")
+    
+    if not documents:
+        print("   ⚠️  Không có dữ liệu Top Movers")
+        return
+    
+    # Bulk index
+    indexed = bulk_index(ES_INDEX_TOP_MOVERS, documents)
+    print(f"   ✅ Hoàn thành! Indexed {indexed} Top Movers vào {ES_INDEX_TOP_MOVERS}")
+
+
+def index_btc_trend(spark):
+    """
+    Index BTC Hourly Trend vào crypto_btc_trend
+    Dùng aggregated/btc_trend
+    """
+    print("\n" + "="*60)
+    print("📈 INDEXING BTC HOURLY TREND")
+    print("="*60)
+    
+    trend_path = Path(AGG_PATH) / "btc_trend"
+    if not trend_path.exists():
+        print("❌ BTC trend data không tồn tại ở:" + str(trend_path))
+        return
+    
+    df = spark.read.parquet(str(trend_path))
     total_count = df.count()
-    print(f"   📂 Đọc {total_count:,} alerts")
+    print(f"   📂 Đọc {total_count:,} records từ btc_trend")
     
     if total_count == 0:
-        print("   ⚠️  Không có alerts để index")
         return
     
     # Collect và index
     rows = df.collect()
     documents = []
-    for i, row in enumerate(rows):
+    for row in rows:
         row_dict = row.asDict()
+        # ID: date_hour (VD: "2026-01-08_11")
+        doc_id = f"{row_dict.get('date')}_{row_dict.get('hour')}"
+        # Tạo timestamp từ date + hour
+        date_str = str(row_dict.get('date'))
+        hour_val = int(row_dict.get('hour', 0))
+        timestamp_str = f"{date_str}T{hour_val:02d}:00:00Z"
+        
         doc = {
-            "_id": f"alert_{i}_{row_dict.get('symbol', 'unknown')}_{row_dict.get('date', '')}",
-            "symbol": row_dict.get("symbol", ""),
-            "name": row_dict.get("name", ""),
-            "alert_type": row_dict.get("alert_type", "UNKNOWN"),
-            "severity": row_dict.get("severity", "MEDIUM"),
-            "price_change_percent": float(row_dict.get("percent_change_24h", 0)),
-            "current_price": float(row_dict.get("price_usd", 0)),
-            "detected_at": str(row_dict.get("date", datetime.now().date()))
+            "_id": doc_id,
+            "date": date_str,
+            "hour": hour_val,
+            "avg_price": float(row_dict.get("avg_price", 0) or 0),
+            "timestamp": timestamp_str
         }
         documents.append(doc)
     
     # Bulk index
-    indexed = 0
-    for i in range(0, len(documents), BULK_SIZE):
-        batch = documents[i:i+BULK_SIZE]
-        indexed += bulk_index(ES_INDEX_ALERTS, batch)
+    indexed = bulk_index(ES_INDEX_BTC_TREND, documents)
+    print(f"   ✅ Hoàn thành! Indexed {indexed} BTC Hourly Trend vào {ES_INDEX_BTC_TREND}")
+
+
+
+
+# def index_alerts(spark):
+#     """
+#     Index cảnh báo pump/dump vào alerts
+#     Đọc từ aggregated/pump_dump_alerts hoặc clean_alerts
+#     """
+#     print("\n" + "="*60)
+#     print("🚨 INDEXING ALERTS")
+#     print("="*60)
     
-    print(f"   ✅ Hoàn thành! Indexed {indexed} alerts vào {ES_INDEX_ALERTS}")
+#     # Đọc pump_dump_alerts từ aggregated
+#     alerts_path = Path(AGG_PATH) / "pump_dump_alerts"
+#     if not alerts_path.exists():
+#         print("⚠️  Chưa có alerts data. Sẽ tạo alerts từ extreme_movements.")
+        
+#         # Đọc extreme_movements thay thế
+#         extreme_path = Path(AGG_PATH) / "extreme_movements"
+#         if not extreme_path.exists():
+#             print("❌ Không có extreme_movements data!")
+#             return
+        
+#         df = spark.read.parquet(str(extreme_path))
+#         df = df.withColumn("alert_type", 
+#             F.when(F.col("percent_change_24h") > 0, "PUMP")
+#             .otherwise("DUMP")
+#         ).withColumn("severity",
+#             F.when(F.abs(F.col("percent_change_24h")) > 50, "CRITICAL")
+#             .when(F.abs(F.col("percent_change_24h")) > 20, "HIGH")
+#             .otherwise("MEDIUM")
+#         )
+#     else:
+#         df = spark.read.parquet(str(alerts_path))
+    
+#     total_count = df.count()
+#     print(f"   📂 Đọc {total_count:,} alerts")
+    
+#     if total_count == 0:
+#         print("   ⚠️  Không có alerts để index")
+#         return
+    
+#     # Collect và index
+#     rows = df.collect()
+#     documents = []
+#     for i, row in enumerate(rows):
+#         row_dict = row.asDict()
+#         doc = {
+#             "_id": f"alert_{i}_{row_dict.get('symbol', 'unknown')}_{row_dict.get('date', '')}",
+#             "symbol": row_dict.get("symbol", ""),
+#             "name": row_dict.get("name", ""),
+#             "alert_type": row_dict.get("alert_type", "UNKNOWN"),
+#             "severity": row_dict.get("severity", "MEDIUM"),
+#             "price_change_percent": float(row_dict.get("percent_change_24h", 0)),
+#             "current_price": float(row_dict.get("price_usd", 0)),
+#             "detected_at": str(row_dict.get("date", datetime.now().date()))
+#         }
+#         documents.append(doc)
+    
+#     # Bulk index
+#     indexed = 0
+#     for i in range(0, len(documents), BULK_SIZE):
+#         batch = documents[i:i+BULK_SIZE]
+#         indexed += bulk_index(ES_INDEX_ALERTS, batch)
+    
+#     print(f"   ✅ Hoàn thành! Indexed {indexed} alerts vào {ES_INDEX_ALERTS}")
 
 
 def show_stats():
@@ -413,7 +551,7 @@ def show_stats():
     print("📊 ELASTICSEARCH INDICES STATS")
     print("="*60)
     
-    indices = [ES_INDEX_LATEST, ES_INDEX_HISTORY, ES_INDEX_ALERTS]
+    indices = [ES_INDEX_MINUTE, ES_INDEX_TOP_MOVERS, ES_INDEX_BTC_TREND]
     for index in indices:
         try:
             response = requests.get(f"{ES_HOST}/{index}/_count")
@@ -450,17 +588,10 @@ def main():
     spark.sparkContext.setLogLevel("WARN")
     
     try:
-        if "--all" in args:
-            index_crypto_latest(spark)
-            index_crypto_history(spark)
-            index_alerts(spark)
-        else:
-            if "--latest" in args:
-                index_crypto_latest(spark)
-            if "--history" in args:
-                index_crypto_history(spark)
-            if "--alerts" in args:
-                index_alerts(spark)
+        # Chỉ index 3 loại dữ liệu cho demo
+        index_minute_trend(spark)
+        index_top_movers(spark)
+        index_btc_trend(spark)
         
         # Show final stats
         show_stats()

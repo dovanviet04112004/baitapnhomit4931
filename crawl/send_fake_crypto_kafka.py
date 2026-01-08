@@ -13,18 +13,18 @@ from kafka import KafkaProducer
 from kafka.errors import KafkaError
 
 # Kafka config
-KAFKA_BOOTSTRAP_SERVERS = ["localhost:19092", "localhost:19093", "localhost:19094"]
-KAFKA_TOPIC = "raw_crypto"
+KAFKA_BOOTSTRAP_SERVERS = ["kafka:9092"]  # Docker network
+KAFKA_TOPIC = "crypto-raw"  # Match with consumer
 
 # Source data file
 DATA_FILE = "output/crypto_raw.json"
 
-# Date range to fake (1 tuần - tiết kiệm disk)
-START_DATE = "2025-12-25"
-END_DATE = "2025-12-31"
+# Date range to fake (1 ngày - test nhanh)
+START_DATE = "2026-01-07"
+END_DATE = "2026-01-07"
 
-# Số lần crawl mỗi ngày (60s/lần = 60 lần/giờ × 24 giờ)
-CRAWLS_PER_DAY = 1440
+# Số lần crawl mỗi ngày (24 lần = mỗi giờ 1 lần)
+CRAWLS_PER_DAY = 24
 
 # Fake coins để thêm vào top 100 (mô phỏng coin mới vào top)
 FAKE_NEW_COINS = [

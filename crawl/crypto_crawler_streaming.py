@@ -5,6 +5,7 @@ Crawl giá crypto từ CoinGecko API và gửi trực tiếp vào Kafka.
 
 import json
 import time
+import os
 import requests
 from datetime import datetime, timezone
 from typing import List, Dict
@@ -19,12 +20,12 @@ COINGECKO_API_URL = "https://api.coingecko.com/api/v3"
 COIN_IDS = None  # None = lấy top 100 theo market cap
 TOP_N_COINS = 100
 
-# Kafka config
-KAFKA_BOOTSTRAP_SERVERS = ["localhost:19092", "localhost:19093", "localhost:19094"]
-KAFKA_TOPIC = "raw_crypto"
+# Kafka config - Support environment variables
+KAFKA_BOOTSTRAP_SERVERS = os.getenv("KAFKA_BOOTSTRAP_SERVERS", "kafka:9092").split(",")
+KAFKA_TOPIC = os.getenv("KAFKA_TOPIC", "crypto-raw")
 
 # Crawl interval (CoinGecko free tier: 10-30 calls/minute)
-CRAWL_INTERVAL_SECONDS = 60
+CRAWL_INTERVAL_SECONDS = int(os.getenv("CRAWL_INTERVAL_SECONDS", "60"))
 
 
 def create_kafka_producer() -> KafkaProducer:
