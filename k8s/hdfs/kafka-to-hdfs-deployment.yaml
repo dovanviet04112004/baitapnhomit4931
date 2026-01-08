@@ -50,6 +50,3 @@ spec:
       - name: hdfs-data
         persistentVolumeClaim:
           claimName: hdfs-data-pvc
-      - name: script
-        configMap:
-          name: kafka-to-hdfs-scri
