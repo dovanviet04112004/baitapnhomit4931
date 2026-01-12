@@ -1,5 +1,5 @@
 # Base image with Spark
-FROM apache/spark:3.5.0
+FROM apache/spark:3.4.1
 
 USER root
 

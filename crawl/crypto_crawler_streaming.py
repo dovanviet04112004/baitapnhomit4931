@@ -21,7 +21,8 @@ COIN_IDS = None  # None = lấy top 100 theo market cap
 TOP_N_COINS = 100
 
 # Kafka config - Support environment variables
-KAFKA_BOOTSTRAP_SERVERS = os.getenv("KAFKA_BOOTSTRAP_SERVERS", "kafka:9092").split(",")
+# Default: localhost:19092 for local dev (Windows), kafka:9092 for Docker
+KAFKA_BOOTSTRAP_SERVERS = os.getenv("KAFKA_BOOTSTRAP_SERVERS", "localhost:19092").split(",")
 KAFKA_TOPIC = os.getenv("KAFKA_TOPIC", "crypto-raw")
 
 # Crawl interval (CoinGecko free tier: 10-30 calls/minute)
@@ -154,11 +155,6 @@ def main():
                 # Send to Kafka
                 sent = send_to_kafka(producer, coins)
                 total_sent += sent
-                
-                # Print status
-                btc = next((c for c in coins if c["coin_id"] == "bitcoin"), None)
-                if btc:
-                    print(f"   BTC: ${btc['current_price']:,.2f} ({btc['price_change_percentage_24h']:+.2f}%)")
                 
                 print(f"   ✅ Đã gửi {sent} coins | Tổng: {total_sent}")
                 

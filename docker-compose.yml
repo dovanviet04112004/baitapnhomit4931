@@ -123,6 +123,30 @@ services:
   # 2. DATA PROCESSING LAYER
   # ======================
 
+  # Kafka to Elasticsearch Consumer - Speed Layer (Real-time)
+  kafka-to-es-consumer:
+    build:
+      context: ./spark
+      dockerfile: consumer.Dockerfile
+    container_name: kafka-to-es-consumer
+    depends_on:
+      kafka:
+        condition: service_healthy
+      elasticsearch:
+        condition: service_healthy
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      ES_HOST: http://elasticsearch:9200
+      PYTHONUNBUFFERED: 1
+    networks:
+      - bigdata-network
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
   # Kafka to HDFS Consumer - Save raw data to HDFS
   kafka-to-hdfs:
     build:
@@ -262,34 +286,34 @@ services:
       - bigdata-network
     # Use the image's default CMD (streaming crawler)
   # Spark Streaming - Kafka to Elasticsearch (disabled, using batch)
-  # spark-streaming:
-  #   build:
-  #     context: ./spark
-  #     dockerfile: Dockerfile
-  #   container_name: spark-streaming
-  #   depends_on:
-  #     kafka:
-  #       condition: service_healthy
-  #     elasticsearch:
-  #       condition: service_healthy
-  #     spark-master:
-  #       condition: service_started
-  #   environment:
-  #     KAFKA_BOOTSTRAP_SERVERS: kafka:9092
-  #     KAFKA_TOPIC: crypto-raw
-  #     ELASTICSEARCH_HOST: elasticsearch
-  #     ELASTICSEARCH_PORT: 9200
-  #     ELASTICSEARCH_INDEX: crypto-data
-  #   volumes:
-  #     - ./spark:/app
-  #   networks:
-  #     - bigdata-network
-  #   command: >
-  #     /opt/spark/bin/spark-submit
-  #     --master local[*]
-  #     --packages org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.0,org.elasticsearch:elasticsearch-spark-30_2.12:8.13.2
-  #     /app/streaming_processing.py
-  #   restart: unless-stopped
+  spark-streaming:
+    build:
+      context: ./spark
+      dockerfile: Dockerfile
+    container_name: spark-streaming
+    depends_on:
+      kafka:
+        condition: service_healthy
+      elasticsearch:
+        condition: service_healthy
+      spark-master:
+        condition: service_started
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      KAFKA_TOPIC: crypto-raw
+      ELASTICSEARCH_HOST: elasticsearch
+      ELASTICSEARCH_PORT: 9200
+      ELASTICSEARCH_INDEX: crypto-data
+    volumes:
+      - ./spark:/app
+    networks:
+      - bigdata-network
+    command: >
+      /opt/spark/bin/spark-submit
+      --master spark://spark-master:7077
+      --packages org.apache.spark:spark-sql-kafka-0-10_2.12:3.4.1
+      /app/streaming_processing.py
+    restart: unless-stopped
 
   # ======================
   # 3. API LAYER

@@ -22,6 +22,7 @@ KAFKA_BOOTSTRAP = os.getenv("KAFKA_BOOTSTRAP_SERVERS", "localhost:19092,localhos
 INPUT_TOPIC = os.getenv("KAFKA_TOPIC", "crypto-raw")
 ALERTS_TOPIC = "alerts"
 CLEAN_TOPIC = "clean_crypto"
+MARKET_SENTIMENT_TOPIC = "market_sentiment"
 
 # Paths
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -210,7 +211,7 @@ def main():
     print("=" * 60)
     print(f"📡 Kafka: {KAFKA_BOOTSTRAP}")
     print(f"📥 Input topic: {INPUT_TOPIC}")
-    print(f"📤 Alerts topic: {ALERTS_TOPIC}")
+    print(f"📤 Output topics: {CLEAN_TOPIC}, {ALERTS_TOPIC}, {MARKET_SENTIMENT_TOPIC}")
     print(f"💾 Checkpoint: {CHECKPOINT_DIR}")
     print("=" * 60)
     
@@ -228,7 +229,16 @@ def main():
         # Parse JSON data
         parsed_df = parse_crypto_data(kafka_df)
         
-        # ===== STREAM 1: Pump/Dump Alerts → Kafka =====
+        # ===== STREAM 1: Clean Data → Kafka =====
+        print("\n🧹 Starting Clean Data Stream...")
+        clean_json = parsed_df.select(
+            F.col("coin_id").alias("key"),
+            F.to_json(F.struct("*")).alias("value")
+        )
+        clean_query = write_to_kafka(clean_json, CLEAN_TOPIC, "clean_data")
+        print(f"   ✅ Clean data streaming to topic: {CLEAN_TOPIC}")
+        
+        # ===== STREAM 2: Pump/Dump Alerts → Kafka =====
         print("\n🚨 Starting Pump/Dump Alert Stream...")
         alerts_df = detect_pump_dump_alerts(parsed_df)
         alerts_json = create_alert_json(alerts_df)
@@ -236,10 +246,21 @@ def main():
         alerts_query = write_to_kafka(alerts_json, ALERTS_TOPIC, "pump_dump_alerts")
         print(f"   ✅ Alerts streaming to topic: {ALERTS_TOPIC}")
         
-        # ===== STREAM 2: Console output for monitoring =====
-        print("\n📺 Starting Console Monitor (latest prices)...")
+        # ===== STREAM 3: Market Sentiment → Kafka =====
+        print("\n😊 Starting Market Sentiment Stream...")
+        sentiment_df = create_market_sentiment_view(parsed_df)
         
-        # Show alerts on console too
+        sentiment_json = sentiment_df.select(
+            F.col("window_start").cast("string").alias("key"),
+            F.to_json(F.struct("*")).alias("value")
+        )
+        sentiment_query = write_to_kafka(sentiment_json, MARKET_SENTIMENT_TOPIC, "market_sentiment")
+        print(f"   ✅ Market sentiment streaming to topic: {MARKET_SENTIMENT_TOPIC}")
+        
+        # ===== STREAM 4: Console Monitor (for debugging) =====
+        print("\n📺 Starting Console Monitor...")
+        
+        # Show alerts on console
         alerts_console = alerts_df.select(
             "crawl_ts", "symbol", "alert_type", 
             "current_price", "price_change_percentage_1h", "price_change_percentage_24h"
@@ -250,24 +271,14 @@ def main():
             .queryName("alerts_monitor") \
             .start()
         
-        # ===== STREAM 3: Market Sentiment =====
-        print("\n😊 Starting Market Sentiment Stream...")
-        sentiment_df = create_market_sentiment_view(parsed_df)
-        
-        sentiment_console = sentiment_df.writeStream \
-            .format("console") \
-            .outputMode("complete") \
-            .option("truncate", False) \
-            .queryName("market_sentiment") \
-            .start()
-        
         print("\n" + "=" * 60)
         print("✅ ALL STREAMS STARTED!")
         print("=" * 60)
         print("\n📋 Active Streams:")
-        print("   1. Pump/Dump Alerts → Kafka topic 'alerts'")
-        print("   2. Alerts Monitor → Console")
-        print("   3. Market Sentiment → Console")
+        print("   1. Clean Data → Kafka topic 'clean_crypto'")
+        print("   2. Pump/Dump Alerts → Kafka topic 'alerts'")
+        print("   3. Market Sentiment → Kafka topic 'market_sentiment'")
+        print("   4. Alerts Monitor → Console (debug)")
         print("\n⏳ Waiting for data from Kafka...")
         print("   (Press Ctrl+C to stop)")
         print("=" * 60)
