@@ -61,8 +61,10 @@ def export_daily_metrics(spark):
     df_postgres = df.withColumn("date", F.col("date").cast("string"))
     
     # Prepare data for Elasticsearch
-    # Create doc_id column for Elasticsearch document ID
-    df_es = df.withColumn("@timestamp", F.col("date").cast("timestamp")) \
+    # Convert date to ISO 8601 string format for proper Elasticsearch date mapping
+    # Format: "2025-01-13T00:00:00.000Z"
+    df_es = df.withColumn("@timestamp", F.date_format(F.col("date"), "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'")) \
+              .withColumn("date", F.date_format(F.col("date"), "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'")) \
               .withColumn("doc_id", F.concat_ws("_", F.col("coin_id"), F.col("date").cast("string")))
     
     # Export to PostgreSQL
@@ -127,9 +129,11 @@ def export_weekly_metrics(spark):
                     .withColumn("week_end_date", F.col("week_end_date").cast("string"))
     
     # Prepare for Elasticsearch
-    # Create doc_id column for Elasticsearch document ID
+    # Convert dates to ISO 8601 string format for proper Elasticsearch date mapping
     # Note: weekly_metrics doesn't have 'year' column
-    df_es = df.withColumn("@timestamp", F.col("week_start_date").cast("timestamp")) \
+    df_es = df.withColumn("@timestamp", F.date_format(F.col("week_start_date"), "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'")) \
+              .withColumn("week_start_date", F.date_format(F.col("week_start_date"), "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'")) \
+              .withColumn("week_end_date", F.date_format(F.col("week_end_date"), "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'")) \
               .withColumn("doc_id", F.concat_ws("_", F.col("coin_id"), F.col("week_of_year").cast("string")))
     
     # Export to PostgreSQL
@@ -194,8 +198,10 @@ def export_monthly_metrics(spark):
                     .withColumn("month_end_date", F.col("month_end_date").cast("string"))
     
     # Prepare for Elasticsearch
-    # Create doc_id column for Elasticsearch document ID
-    df_es = df.withColumn("@timestamp", F.col("month_start_date").cast("timestamp")) \
+    # Convert dates to ISO 8601 string format for proper Elasticsearch date mapping
+    df_es = df.withColumn("@timestamp", F.date_format(F.col("month_start_date"), "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'")) \
+              .withColumn("month_start_date", F.date_format(F.col("month_start_date"), "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'")) \
+              .withColumn("month_end_date", F.date_format(F.col("month_end_date"), "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'")) \
               .withColumn("doc_id", F.concat_ws("_", F.col("coin_id"), F.col("month_start_date").cast("string")))
     
     # Export to PostgreSQL

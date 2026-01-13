@@ -1,13 +1,13 @@
-# Kibana Visualization Guide for Batch Processing Data
+# 📊 Kibana Visualization Guide - Top 4 Charts
 
-## 📊 **Overview**
+## 🎯 **Overview**
 
-Hướng dẫn tạo dashboards và visualizations trong Kibana để phân tích dữ liệu crypto từ batch processing pipeline.
+Hướng dẫn tạo **4 biểu đồ đẹp và trực quan nhất** trong Kibana để phân tích dữ liệu crypto từ batch processing pipeline.
 
-**Data Sources:**
-- `daily_metrics`: Daily aggregated metrics (365 records/year/coin)
-- `weekly_metrics`: Weekly aggregated metrics (52 records/year/coin)
-- `monthly_metrics`: Monthly aggregated metrics (12 records/year/coin)
+**Phân bổ:**
+- ✅ **Daily Metrics**: 2 biểu đồ
+- ✅ **Weekly Metrics**: 1 biểu đồ  
+- ✅ **Monthly Metrics**: 1 biểu đồ
 
 ---
 
@@ -23,7 +23,7 @@ URL: http://localhost:5601
 
 **Navigation:** Stack Management → Data Views → Create data view
 
-#### **Index Pattern 1: Daily Metrics**
+#### **Index Pattern 1: Daily Crypto Metrics**
 
 ```
 Name: Daily Crypto Metrics
@@ -31,18 +31,15 @@ Index pattern: daily_metrics
 Timestamp field: @timestamp
 ```
 
-**Fields available:**
-- `coin_id` (keyword)
-- `symbol` (keyword)
-- `name` (text)
-- `date` (date)
+**Key Fields:**
+- `coin_id`, `symbol`, `name` (keyword/text)
+- `date`, `@timestamp` (date)
 - `open_price`, `close_price`, `high_price`, `low_price` (double)
 - `return_pct_day`, `volatility_day` (double)
 - `volume_sum_day` (long)
 - `market_cap_close` (long)
-- `@timestamp` (date)
 
-#### **Index Pattern 2: Weekly Metrics**
+#### **Index Pattern 2: Weekly Crypto Metrics**
 
 ```
 Name: Weekly Crypto Metrics
@@ -50,15 +47,14 @@ Index pattern: weekly_metrics
 Timestamp field: @timestamp
 ```
 
-**Fields available:**
+**Key Fields:**
 - `coin_id`, `symbol`, `name`
 - `week_of_year` (integer)
 - `week_start_date`, `week_end_date` (date)
-- `open_price_week`, `close_price_week`, `high_price_week`, `low_price_week`
-- `return_pct_week`, `volatility_week`
-- `volume_sum_week`
+- `return_pct_week`, `volatility_week` (double)
+- `volume_sum_week` (long)
 
-#### **Index Pattern 3: Monthly Metrics**
+#### **Index Pattern 3: Monthly Crypto Metrics**
 
 ```
 Name: Monthly Crypto Metrics
@@ -66,106 +62,27 @@ Index pattern: monthly_metrics
 Timestamp field: @timestamp
 ```
 
----
-
-## 📈 **STEP 2: Create Visualizations**
-
-### **Dashboard 1: Market Overview** 🌍
-
-#### **Visualization 1: Total Market Cap (Metric)**
-
-**Type:** Metric
-
-**Configuration:**
-```
-Data View: Daily Crypto Metrics
-Metric:
-  - Aggregation: Max
-  - Field: market_cap_close
-  - Custom label: "Total Market Cap"
-  
-Filters:
-  - @timestamp: Last 24 hours
-  
-Format:
-  - Number format: $0,0.00
-  - Font size: 48px
-```
-
-**Steps:**
-1. Analytics → Visualize Library → Create visualization
-2. Select "Metric"
-3. Choose "Daily Crypto Metrics" data view
-4. Click "Add field" → Select "market_cap_close"
-5. Change aggregation to "Max"
-6. Add filter: `@timestamp >= now-1d`
-7. Save as "Total Market Cap"
+**Key Fields:**
+- `coin_id`, `symbol`, `name`
+- `month_start_date`, `month_end_date` (date)
+- `close_price_month` (double)
+- `return_pct_month`, `volatility_month` (double)
 
 ---
 
-#### **Visualization 2: Top 10 Gainers (Table)**
-
-**Type:** Table
-
-**Configuration:**
-```
-Data View: Daily Crypto Metrics
-
-Rows:
-  - Field: symbol.keyword
-  - Size: 10
-  - Order by: Custom metric (return_pct_day)
-  - Order: Descending
-
-Metrics:
-  1. Max return_pct_day (Custom label: "Return %")
-  2. Max close_price (Custom label: "Price")
-  3. Max volume_sum_day (Custom label: "Volume")
-  4. Max market_cap_close (Custom label: "Market Cap")
-
-Filters:
-  - return_pct_day > 0
-  - @timestamp: Last 24 hours
-```
-
-**Steps:**
-1. Create visualization → Table
-2. Add "Rows" bucket:
-   - Aggregation: Terms
-   - Field: symbol.keyword
-   - Size: 10
-   - Order by: Metric (return_pct_day)
-   - Descending
-3. Add metrics:
-   - Click "Add metric"
-   - Aggregation: Max
-   - Field: return_pct_day
-   - Repeat for other fields
-4. Add filters in top bar
-5. Save as "Top 10 Gainers"
+## 📈 **STEP 2: Create 4 Beautiful Visualizations**
 
 ---
 
-#### **Visualization 3: Top 10 Losers (Table)**
+### **1️⃣ Multi-Coin Price Trend (Line Chart)** 📈
 
-**Same as Top 10 Gainers but:**
-```
-Filters:
-  - return_pct_day < 0
-  
-Order: Ascending (most negative first)
-```
+> **Category:** Daily Metrics  
+> **Why:** Trực quan nhất, hiển thị xu hướng giá của nhiều coin theo thời gian
 
----
+#### **Configuration**
 
-### **Dashboard 2: Price Trends** 📉
-
-#### **Visualization 4: Multi-Coin Price Trend (Line Chart)**
-
-**Type:** Line
-
-**Configuration:**
-```
+```yaml
+Type: Line Chart
 Data View: Daily Crypto Metrics
 
 Y-axis:
@@ -189,207 +106,294 @@ Panel settings:
   - Legend position: Right
   - Show dots: false
   - Line width: 2
+  - Smooth lines: true
 ```
 
-**Steps:**
-1. Create visualization → Line
-2. Y-axis: Average close_price
-3. X-axis: Date Histogram (@timestamp, daily)
-4. Add "Breakdown":
-   - Field: symbol.keyword
-   - Size: 5
-   - Advanced → Include: "BTC|ETH|BNB|SOL|ADA" (regex)
-5. Set time range to "Last 30 days"
-6. Save as "Multi-Coin Price Trend"
+#### **Step-by-Step Instructions**
+
+1. **Create Visualization**
+   - Navigate to: `Analytics → Visualize Library → Create visualization`
+   - Select: `Line`
+   - Choose data view: `Daily Crypto Metrics`
+
+2. **Configure Y-axis**
+   - Click `Add field` under Y-axis
+   - Select `close_price`
+   - Change aggregation to `Average`
+   - Custom label: `Price (USD)`
+
+3. **Configure X-axis**
+   - Click `Add field` under X-axis
+   - Select `@timestamp`
+   - Aggregation: `Date Histogram`
+   - Interval: `1 day`
+
+4. **Add Breakdown (Multiple Lines)**
+   - Click `Add` under `Breakdown`
+   - Field: `symbol.keyword`
+   - Size: `5`
+   - Advanced → Include patterns: `BTC|ETH|BNB|SOL|ADA` (regex)
+
+5. **Set Time Range**
+   - Top right corner: Select `Last 30 days`
+
+6. **Panel Settings**
+   - Click `Settings` icon
+   - Legend position: `Right`
+   - Show dots: `Off`
+   - Line width: `2`
+
+7. **Save**
+   - Click `Save`
+   - Title: `Multi-Coin Price Trend`
+   - Description: `Price trends for top 5 cryptocurrencies over 30 days`
+   - Tags: `daily`, `price`, `trend`
+
+#### **Expected Result**
+
+```
+Price (USD)
+    │     ╱╲    ╱╲
+60K │   ╱    ╲╱    ╲  ← BTC (Blue)
+    │  ╱              ╲
+40K │ ╱                ╲
+    │╱                  ╲  ← ETH (Green)
+20K │────────────────────────
+    └─────────────────────────→ Time
+    Jan 1    Jan 15    Jan 30
+```
+
+**Visual Features:**
+- ✨ Smooth, colorful lines for each coin
+- 📊 Clear price comparison across coins
+- 🎨 Auto-assigned colors for each symbol
+- 📈 Easy to spot trends and patterns
 
 ---
 
-#### **Visualization 5: Volume Heatmap**
+### **2️⃣ Volume Heatmap** 🔥
 
-**Type:** Heat map
+> **Category:** Daily Metrics  
+> **Why:** Cực kỳ đẹp mắt với gradient colors, dễ phát hiện patterns
 
-**Configuration:**
-```
+#### **Configuration**
+
+```yaml
+Type: Heat Map
 Data View: Daily Crypto Metrics
 
 Value:
   - Aggregation: Sum
   - Field: volume_sum_day
+  - Custom label: "Trading Volume"
 
-X-axis:
+X-axis (Horizontal):
   - Aggregation: Date Histogram
   - Field: @timestamp
   - Interval: Daily
 
-Y-axis:
+Y-axis (Vertical):
   - Aggregation: Terms
   - Field: symbol.keyword
   - Size: 10
   - Order by: Metric (Sum volume_sum_day)
+  - Order: Descending
 
 Color scale:
   - Palette: Green to Red
   - Steps: 5
+  - Reverse: false
+
+Time range: Last 30 days
 ```
 
-**Steps:**
-1. Create visualization → Heat map
-2. Configure axes as above
-3. Panel settings → Color palette: "Green to Red"
-4. Save as "Volume Heatmap"
+#### **Step-by-Step Instructions**
+
+1. **Create Visualization**
+   - Navigate to: `Analytics → Visualize Library → Create visualization`
+   - Select: `Heat map`
+   - Choose data view: `Daily Crypto Metrics`
+
+2. **Configure Value (Color Intensity)**
+   - Click `Add field` under Value
+   - Select `volume_sum_day`
+   - Aggregation: `Sum`
+   - Custom label: `Trading Volume`
+
+3. **Configure X-axis (Time)**
+   - Click `Add field` under X-axis
+   - Select `@timestamp`
+   - Aggregation: `Date Histogram`
+   - Interval: `1 day`
+
+4. **Configure Y-axis (Coins)**
+   - Click `Add field` under Y-axis
+   - Select `symbol.keyword`
+   - Aggregation: `Terms`
+   - Size: `10`
+   - Order by: `Metric: Sum volume_sum_day`
+   - Order: `Descending`
+
+5. **Configure Colors**
+   - Click `Settings` icon
+   - Color palette: `Green to Red`
+   - Number of steps: `5`
+   - Reverse colors: `Off`
+
+6. **Set Time Range**
+   - Top right: `Last 30 days`
+
+7. **Save**
+   - Title: `Volume Heatmap`
+   - Description: `Daily trading volume heatmap for top 10 coins`
+   - Tags: `daily`, `volume`, `heatmap`
+
+#### **Expected Result**
+
+```
+Symbol
+BTC  │🟢🟡🟡🔴🔴🟡🟢🟢🟡🔴│
+ETH  │🟡🟡🔴🔴🟢🟢🟡🟡🔴🔴│
+BNB  │🟢🟢🟢🟡🟡🟡🟢🟢🟢🟡│
+SOL  │🟡🔴🔴🟢🟢🟢🟡🟡🔴🔴│
+ADA  │🟢🟢🟡🟡🟡🟢🟢🟢🟡🟡│
+     └────────────────────→
+      1  5  10 15 20 25 30 (Days)
+
+🟢 Low Volume  🟡 Medium  🔴 High Volume
+```
+
+**Visual Features:**
+- 🌈 Beautiful gradient from green (low) to red (high)
+- 🔍 Easy to spot high-volume days
+- 📊 Compare volume across coins and time
+- 💎 Professional and modern look
 
 ---
 
-### **Dashboard 3: Volatility Analysis** 📊
+### **3️⃣ Weekly Performance Bar Chart** 📊
 
-#### **Visualization 6: Volatility Gauge**
+> **Category:** Weekly Metrics  
+> **Why:** Rõ ràng, màu sắc thông minh (xanh/đỏ), dễ so sánh
 
-**Type:** Gauge
+#### **Configuration**
 
-**Configuration:**
-```
-Data View: Daily Crypto Metrics
-
-Metric:
-  - Aggregation: Average
-  - Field: volatility_day
-
-Ranges:
-  - 0-5: Low (Green)
-  - 5-15: Medium (Yellow)
-  - 15-100: High (Red)
-
-Filters:
-  - symbol.keyword: "BTC"
-  - @timestamp: Last 24 hours
-```
-
-**Steps:**
-1. Create visualization → Gauge
-2. Metric: Average volatility_day
-3. Panel settings → Ranges:
-   - Add range: 0 to 5 (Green)
-   - Add range: 5 to 15 (Yellow)
-   - Add range: 15 to 100 (Red)
-4. Add filter: symbol.keyword = "BTC"
-5. Save as "BTC Volatility Gauge"
-
----
-
-#### **Visualization 7: Return vs Volatility Scatter**
-
-**Type:** Lens XY Chart**
-
-**Configuration:**
-```
-Data View: Daily Crypto Metrics
-
-X-axis:
-  - Field: volatility_day
-  - Aggregation: Average
-
-Y-axis:
-  - Field: return_pct_day
-  - Aggregation: Average
-
-Breakdown:
-  - Field: symbol.keyword
-  - Size: 20
-
-Time range: Last 7 days
-```
-
----
-
-### **Dashboard 4: Market Distribution** 🥧
-
-#### **Visualization 8: Market Cap Pie Chart**
-
-**Type:** Pie
-
-**Configuration:**
-```
-Data View: Daily Crypto Metrics
-
-Slice by:
-  - Aggregation: Terms
-  - Field: symbol.keyword
-  - Size: 10
-  - Order by: Metric (Avg market_cap_close)
-
-Metric:
-  - Aggregation: Average
-  - Field: market_cap_close
-
-Filters:
-  - @timestamp: Last 24 hours
-
-Panel settings:
-  - Donut: true
-  - Show labels: true
-  - Show values: true
-```
-
-**Steps:**
-1. Create visualization → Pie
-2. Slice by: Terms symbol.keyword (size 10)
-3. Metric: Average market_cap_close
-4. Panel settings → Donut
-5. Save as "Market Cap Distribution"
-
----
-
-### **Dashboard 5: Weekly/Monthly Trends** 📅
-
-#### **Visualization 9: Weekly Performance Bar Chart**
-
-**Type:** Vertical bar
-
-**Configuration:**
-```
+```yaml
+Type: Vertical Bar Chart
 Data View: Weekly Crypto Metrics
 
 Y-axis:
   - Aggregation: Average
   - Field: return_pct_week
-  - Custom label: "Weekly Return %"
+  - Custom label: "Weekly Return (%)"
 
 X-axis:
   - Aggregation: Terms
   - Field: symbol.keyword
   - Size: 10
   - Order by: Metric (Avg return_pct_week)
-
-Filters:
-  - @timestamp: Last 7 days
+  - Order: Descending
 
 Colors:
-  - Positive: Green
-  - Negative: Red
+  - Color by value: Enabled
+  - Positive values: Green (#00CC66)
+  - Negative values: Red (#FF4444)
+
+Time range: Last 7 days
+
+Panel settings:
+  - Show values on bars: true
+  - Bar width: 0.7
 ```
+
+#### **Step-by-Step Instructions**
+
+1. **Create Visualization**
+   - Navigate to: `Analytics → Visualize Library → Create visualization`
+   - Select: `Vertical bar`
+   - Choose data view: `Weekly Crypto Metrics`
+
+2. **Configure Y-axis (Returns)**
+   - Click `Add field` under Y-axis
+   - Select `return_pct_week`
+   - Aggregation: `Average`
+   - Custom label: `Weekly Return (%)`
+
+3. **Configure X-axis (Coins)**
+   - Click `Add field` under X-axis
+   - Select `symbol.keyword`
+   - Aggregation: `Terms`
+   - Size: `10`
+   - Order by: `Metric: Average return_pct_week`
+   - Order: `Descending`
+
+4. **Configure Colors (Green/Red)**
+   - Click `Settings` icon
+   - Enable `Color by value`
+   - Add rule: `value >= 0` → Color: `#00CC66` (Green)
+   - Add rule: `value < 0` → Color: `#FF4444` (Red)
+
+5. **Panel Settings**
+   - Show values on bars: `On`
+   - Bar width: `0.7`
+
+6. **Set Time Range**
+   - Top right: `Last 7 days`
+
+7. **Save**
+   - Title: `Weekly Performance`
+   - Description: `Weekly return percentage for top 10 coins`
+   - Tags: `weekly`, `performance`, `returns`
+
+#### **Expected Result**
+
+```
+Return %
+   15│     ██
+   10│     ██  ██
+    5│ ██  ██  ██  ██
+    0├─────────────────────
+   -5│             ██  ██
+  -10│                 ██
+     └─────────────────────
+      BTC ETH BNB SOL ADA XRP DOT MATIC LINK UNI
+      🟢  🟢  🟢  🟢  🔴  🟢  🔴  🔴   🟢   🔴
+
+Green = Gainers | Red = Losers
+```
+
+**Visual Features:**
+- 🎯 Clear visual distinction between gainers and losers
+- 📊 Easy comparison across coins
+- 💚❤️ Intuitive color coding (green=good, red=bad)
+- 📈 Shows exact percentage values on bars
 
 ---
 
-#### **Visualization 10: Monthly Trend Area Chart**
+### **4️⃣ Monthly Trend Area Chart** 🌊
 
-**Type:** Area
+> **Category:** Monthly Metrics  
+> **Why:** Cực kỳ đẹp với area fill, hiển thị xu hướng dài hạn
 
-**Configuration:**
-```
+#### **Configuration**
+
+```yaml
+Type: Area Chart
 Data View: Monthly Crypto Metrics
 
 Y-axis:
   - Aggregation: Average
   - Field: close_price_month
+  - Custom label: "Price (USD)"
 
 X-axis:
   - Aggregation: Date Histogram
   - Field: @timestamp
-  - Interval: Monthly
+  - Interval: Monthly (1M)
 
 Breakdown:
   - Field: symbol.keyword
-  - Size: 5
+  - Size: 3
   - Include: BTC, ETH, BNB
 
 Time range: Last 12 months
@@ -397,7 +401,72 @@ Time range: Last 12 months
 Panel settings:
   - Stacked: false
   - Fill opacity: 0.3
+  - Line width: 2
+  - Show points: false
+  - Legend position: Right
 ```
+
+#### **Step-by-Step Instructions**
+
+1. **Create Visualization**
+   - Navigate to: `Analytics → Visualize Library → Create visualization`
+   - Select: `Area`
+   - Choose data view: `Monthly Crypto Metrics`
+
+2. **Configure Y-axis (Price)**
+   - Click `Add field` under Y-axis
+   - Select `close_price_month`
+   - Aggregation: `Average`
+   - Custom label: `Price (USD)`
+
+3. **Configure X-axis (Time)**
+   - Click `Add field` under X-axis
+   - Select `@timestamp`
+   - Aggregation: `Date Histogram`
+   - Interval: `1 month` (1M)
+
+4. **Add Breakdown (Multiple Areas)**
+   - Click `Add` under `Breakdown`
+   - Field: `symbol.keyword`
+   - Size: `3`
+   - Advanced → Include patterns: `BTC|ETH|BNB` (regex)
+
+5. **Configure Area Settings**
+   - Click `Settings` icon
+   - Stacked: `Off` (overlapping areas)
+   - Fill opacity: `0.3` (30% transparent)
+   - Line width: `2`
+   - Show points: `Off`
+
+6. **Set Time Range**
+   - Top right: `Last 12 months`
+
+7. **Save**
+   - Title: `Monthly Trend`
+   - Description: `Monthly price trends for top 3 cryptocurrencies`
+   - Tags: `monthly`, `trend`, `long-term`
+
+#### **Expected Result**
+
+```
+Price (USD)
+    │        ╱╲╱╲
+60K │      ╱▓▓▓▓▓▓╲     ← BTC (Blue area)
+    │    ╱▓▓▓▓▓▓▓▓▓▓╲
+40K │  ╱▓▓▓▓▓▓▓▓▓▓▓▓▓▓╲
+    │╱▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒╲ ← ETH (Green area)
+20K │░░░░░░░░░░░░░░░░░░░░ ← BNB (Orange area)
+    └────────────────────────→
+    Jan  Mar  May  Jul  Sep  Nov
+
+▓ = BTC  ▒ = ETH  ░ = BNB
+```
+
+**Visual Features:**
+- 🌊 Smooth, flowing area charts
+- 🎨 Semi-transparent fills create beautiful overlays
+- 📊 Long-term trend visualization
+- 💎 Premium, professional appearance
 
 ---
 
@@ -407,341 +476,420 @@ Panel settings:
 
 **Navigation:** Analytics → Dashboard → Create dashboard
 
-**Dashboard Name:** Crypto Market Analytics
+**Dashboard Name:** `Crypto Analytics - Top 4 Charts`
 
 ### **3.2. Dashboard Layout**
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│  📊 CRYPTO MARKET ANALYTICS                                 │
+│  📊 CRYPTO ANALYTICS DASHBOARD                              │
 │  [Time Range: Last 30 days] [Auto-refresh: 5 min]          │
 ├─────────────────────────────────────────────────────────────┤
-│  [Total Market Cap]  [Avg Volatility]  [Total Volume]      │
-│  (Metrics - 1/3 width each)                                 │
+│                                                             │
+│  📈 MULTI-COIN PRICE TREND (Last 30 Days)                  │
+│  (Line Chart - Full Width, Height: 300px)                  │
+│                                                             │
+├─────────────────────────────────────────────────────────────┤
+│                                                             │
+│  🔥 VOLUME HEATMAP                                         │
+│  (Heat Map - Full Width, Height: 400px)                    │
+│                                                             │
 ├──────────────────────────┬──────────────────────────────────┤
-│  🏆 Top 10 Gainers       │  📉 Top 10 Losers                │
-│  (Table - 1/2 width)     │  (Table - 1/2 width)             │
-├──────────────────────────┴──────────────────────────────────┤
-│  📈 Multi-Coin Price Trend (Last 30 Days)                   │
-│  (Line Chart - Full width)                                  │
-├──────────────────────────┬──────────────────────────────────┤
-│  🔥 Volume Heatmap       │  🥧 Market Cap Distribution      │
-│  (Heat Map - 1/2 width)  │  (Pie Chart - 1/2 width)         │
-├──────────────────────────┴──────────────────────────────────┤
-│  📊 Return vs Volatility Scatter                            │
-│  (XY Chart - Full width)                                    │
-└─────────────────────────────────────────────────────────────┘
+│  📊 WEEKLY PERFORMANCE   │  🌊 MONTHLY TREND                │
+│  (Bar Chart - 1/2 width) │  (Area Chart - 1/2 width)        │
+│  Height: 350px           │  Height: 350px                   │
+│                          │                                  │
+└──────────────────────────┴──────────────────────────────────┘
 ```
 
-### **3.3. Add Visualizations**
+### **3.3. Add Visualizations to Dashboard**
 
-1. Click "Add panel"
-2. Select "Add from library"
-3. Choose visualizations created above
-4. Resize and arrange panels
-5. Save dashboard
+1. **Add First Panel (Line Chart)**
+   - Click `Add panel` → `Add from library`
+   - Select `Multi-Coin Price Trend`
+   - Resize: Full width, Height ~300px
+   - Position: Top
+
+2. **Add Second Panel (Heatmap)**
+   - Click `Add panel` → `Add from library`
+   - Select `Volume Heatmap`
+   - Resize: Full width, Height ~400px
+   - Position: Below line chart
+
+3. **Add Third Panel (Bar Chart)**
+   - Click `Add panel` → `Add from library`
+   - Select `Weekly Performance`
+   - Resize: 50% width, Height ~350px
+   - Position: Bottom left
+
+4. **Add Fourth Panel (Area Chart)**
+   - Click `Add panel` → `Add from library`
+   - Select `Monthly Trend`
+   - Resize: 50% width, Height ~350px
+   - Position: Bottom right
 
 ### **3.4. Dashboard Settings**
 
-```
+```yaml
 Time range: Last 30 days
 Auto-refresh: 5 minutes
-Description: Real-time crypto market analytics from batch processing
-Tags: crypto, batch, analytics
+Description: Top 4 most beautiful and informative crypto visualizations
+Tags: crypto, analytics, dashboard, top-charts
+
+Options:
+  - Use margins between panels: true
+  - Show panel titles: true
+  - Sync color palettes: true
+  - Hide filter bar: false
 ```
+
+### **3.5. Save Dashboard**
+
+1. Click `Save` in top right
+2. Title: `Crypto Analytics - Top 4 Charts`
+3. Description: `Daily, Weekly, and Monthly crypto market analytics`
+4. Store time with dashboard: `Yes`
+5. Click `Save`
 
 ---
 
-## 🔍 **STEP 4: Advanced Features**
+## 🎯 **STEP 4: Quick Start Guide**
 
-### **4.1. Saved Searches**
+### **Complete Setup Checklist**
 
-#### **Search 1: High Volatility Coins**
-
-```
-Index: daily_metrics
-Query: volatility_day > 15 AND @timestamp >= now-7d
-Sort: volatility_day DESC
-Columns: symbol, name, volatility_day, return_pct_day, close_price
-```
-
-**Steps:**
-1. Discover → Select "Daily Crypto Metrics"
-2. Add filter: `volatility_day > 15`
-3. Add time filter: Last 7 days
-4. Select columns to display
-5. Save search as "High Volatility Coins"
-
----
-
-#### **Search 2: Today's Big Movers**
-
-```
-Index: daily_metrics
-Query: ABS(return_pct_day) > 5 AND @timestamp >= now-1d
-Sort: ABS(return_pct_day) DESC
-```
-
----
-
-### **4.2. Alerts (Watcher)**
-
-#### **Alert 1: Extreme Volatility**
-
-```
-Trigger: volatility_day > 20
-Condition: Any coin
-Frequency: Every 1 hour
-Action: Send notification
-```
-
-**Configuration:**
-```json
-{
-  "trigger": {
-    "schedule": {
-      "interval": "1h"
-    }
-  },
-  "input": {
-    "search": {
-      "request": {
-        "indices": ["daily_metrics"],
-        "body": {
-          "query": {
-            "bool": {
-              "must": [
-                {
-                  "range": {
-                    "volatility_day": {
-                      "gt": 20
-                    }
-                  }
-                },
-                {
-                  "range": {
-                    "@timestamp": {
-                      "gte": "now-1h"
-                    }
-                  }
-                }
-              ]
-            }
-          }
-        }
-      }
-    }
-  },
-  "condition": {
-    "compare": {
-      "ctx.payload.hits.total": {
-        "gt": 0
-      }
-    }
-  },
-  "actions": {
-    "log_alert": {
-      "logging": {
-        "text": "High volatility detected: {{ctx.payload.hits.total}} coins"
-      }
-    }
-  }
-}
-```
-
----
-
-#### **Alert 2: Price Spike**
-
-```
-Trigger: ABS(return_pct_day) > 10
-Condition: Any coin
-Frequency: Real-time
-Action: Send email
-```
-
----
-
-### **4.3. Custom Filters**
-
-#### **Filter 1: Top Market Cap Coins**
-
-```
-Query: market_cap_close > 10000000000
-Name: "Large Cap Coins"
-```
-
-#### **Filter 2: High Volume**
-
-```
-Query: volume_sum_day > 1000000000
-Name: "High Volume Coins"
-```
-
----
-
-## 📊 **STEP 5: Sample Queries**
-
-### **Discover Tab Queries**
-
-#### **1. Find coins with consistent growth**
-
-```
-KQL: return_pct_day > 0 AND volatility_day < 10 AND @timestamp >= now-7d
-```
-
-#### **2. Identify pump and dump patterns**
-
-```
-KQL: return_pct_day > 20 OR return_pct_day < -20
-```
-
-#### **3. Bitcoin performance analysis**
-
-```
-KQL: symbol.keyword: "BTC" AND @timestamp >= now-30d
-```
-
-#### **4. Low volatility stable coins**
-
-```
-KQL: volatility_day < 5 AND @timestamp >= now-7d
-```
-
----
-
-## 🎯 **STEP 6: Best Practices**
-
-### **6.1. Performance Optimization**
-
-1. **Use appropriate time ranges**
-   - Daily analysis: Last 7 days
-   - Weekly analysis: Last 3 months
-   - Monthly analysis: Last 12 months
-
-2. **Limit data points**
-   - Tables: Max 20 rows
-   - Charts: Max 10 series
-   - Heatmaps: Max 50 cells
-
-3. **Use filters effectively**
-   - Filter at dashboard level for global filters
-   - Filter at visualization level for specific needs
-
-### **6.2. Visual Design**
-
-1. **Color Consistency**
-   - Green: Positive returns
-   - Red: Negative returns
-   - Blue: Neutral metrics
-   - Yellow: Warnings
-
-2. **Chart Selection**
-   - Time series: Line charts
-   - Comparisons: Bar charts
-   - Distributions: Pie charts
-   - Correlations: Scatter plots
-
-3. **Layout**
-   - Most important metrics at top
-   - Related visualizations grouped together
-   - Consistent sizing and spacing
-
----
-
-## ✅ **Quick Start Checklist**
-
-### **Setup**
+#### **Setup (5 minutes)**
+- [ ] Access Kibana at `http://localhost:5601`
 - [ ] Create 3 index patterns (daily, weekly, monthly)
-- [ ] Verify data is indexed in Elasticsearch
-- [ ] Check field mappings are correct
+- [ ] Verify data exists in Elasticsearch
+- [ ] Refresh field lists
 
-### **Visualizations**
-- [ ] Create Total Market Cap metric
-- [ ] Create Top Gainers/Losers tables
-- [ ] Create Price Trend line chart
-- [ ] Create Volume heatmap
-- [ ] Create Market Cap pie chart
-- [ ] Create Volatility gauge
-- [ ] Create Return vs Volatility scatter
-- [ ] Create Weekly/Monthly trend charts
+#### **Visualizations (20 minutes)**
+- [ ] Create Line Chart: Multi-Coin Price Trend (5 min)
+- [ ] Create Heatmap: Volume Heatmap (5 min)
+- [ ] Create Bar Chart: Weekly Performance (5 min)
+- [ ] Create Area Chart: Monthly Trend (5 min)
 
-### **Dashboard**
-- [ ] Create main dashboard
-- [ ] Add all visualizations
-- [ ] Arrange layout
-- [ ] Set time range (Last 30 days)
+#### **Dashboard (5 minutes)**
+- [ ] Create new dashboard
+- [ ] Add all 4 visualizations
+- [ ] Arrange layout as shown above
+- [ ] Set time range to Last 30 days
 - [ ] Enable auto-refresh (5 min)
-- [ ] Add filters
 - [ ] Save dashboard
 
-### **Advanced**
-- [ ] Create saved searches
-- [ ] Set up alerts
-- [ ] Create custom filters
-- [ ] Test queries
+#### **Testing (5 minutes)**
+- [ ] Verify all charts display data
+- [ ] Test time range filters
+- [ ] Test auto-refresh
+- [ ] Check colors and formatting
+
+**Total Time: ~35 minutes**
 
 ---
 
-## 🔧 **Troubleshooting**
+## 🔧 **STEP 5: Troubleshooting**
 
 ### **Issue 1: No data in visualizations**
 
-**Solution:**
-```
-1. Check Elasticsearch indices:
-   curl http://localhost:9200/_cat/indices?v
+**Symptoms:**
+- Charts show "No results found"
+- Empty visualizations
 
-2. Verify data exists:
-   curl http://localhost:9200/daily_metrics/_count
+**Solutions:**
+```bash
+# 1. Check if indices exist
+curl http://localhost:9200/_cat/indices?v | grep metrics
 
-3. Check time range in Kibana
-4. Refresh index pattern fields
-```
+# 2. Verify data count
+curl http://localhost:9200/daily_metrics/_count
+curl http://localhost:9200/weekly_metrics/_count
+curl http://localhost:9200/monthly_metrics/_count
 
-### **Issue 2: Slow dashboard loading**
+# 3. Check sample document
+curl http://localhost:9200/daily_metrics/_search?size=1&pretty
 
-**Solution:**
-```
-1. Reduce time range
-2. Limit number of visualizations
-3. Use filters to reduce data
-4. Increase Elasticsearch heap size
-```
-
-### **Issue 3: Field not found**
-
-**Solution:**
-```
-1. Refresh index pattern:
-   Stack Management → Index Patterns → Refresh field list
-
-2. Check field mapping:
-   curl http://localhost:9200/daily_metrics/_mapping
+# 4. In Kibana:
+#    - Check time range (expand to "Last 90 days")
+#    - Refresh index pattern field list
+#    - Verify @timestamp field exists
 ```
 
 ---
 
-## 📚 **Additional Resources**
+### **Issue 2: Wrong colors in heatmap**
 
-### **Kibana Documentation**
-- Visualizations: https://www.elastic.co/guide/en/kibana/current/dashboard.html
-- Lens: https://www.elastic.co/guide/en/kibana/current/lens.html
-- Alerts: https://www.elastic.co/guide/en/kibana/current/alerting-getting-started.html
+**Symptoms:**
+- Colors don't match volume levels
+- All cells same color
 
-### **Sample Dashboards**
-- Financial Analytics: https://www.elastic.co/kibana/kibana-dashboard-gallery
-- Time Series Analysis: https://www.elastic.co/blog/
+**Solutions:**
+1. Check color palette settings:
+   - Settings → Color palette → `Green to Red`
+   - Reverse colors: `Off`
+   - Number of steps: `5`
+
+2. Verify value aggregation:
+   - Should be `Sum` not `Average`
+   - Field: `volume_sum_day`
+
+3. Check data range:
+   - If all values similar, colors will look same
+   - Try different time range
 
 ---
 
-## 🎓 **Next Steps**
+### **Issue 3: Bar chart not showing colors**
 
-1. ✅ Complete setup checklist
-2. ✅ Create all visualizations
-3. ✅ Build main dashboard
-4. ✅ Set up alerts
-5. ✅ Share dashboard with team
-6. ✅ Schedule regular reviews
+**Symptoms:**
+- All bars are same color
+- No green/red distinction
 
-**Happy Visualizing!** 📊✨
+**Solutions:**
+1. Enable "Color by value":
+   - Settings → Color by value: `On`
+
+2. Add color rules:
+   ```
+   Rule 1: value >= 0 → #00CC66 (Green)
+   Rule 2: value < 0 → #FF4444 (Red)
+   ```
+
+3. Verify field has positive and negative values:
+   - Check `return_pct_week` data
+   - Should have both gains and losses
+
+---
+
+### **Issue 4: Area chart looks messy**
+
+**Symptoms:**
+- Too many overlapping areas
+- Can't distinguish coins
+
+**Solutions:**
+1. Reduce number of coins:
+   - Breakdown size: `3` (not 5 or 10)
+   - Include only: `BTC|ETH|BNB`
+
+2. Adjust transparency:
+   - Fill opacity: `0.3` (30%)
+   - Too high = can't see overlap
+   - Too low = hard to see areas
+
+3. Disable stacking:
+   - Stacked: `Off`
+   - This allows areas to overlap
+
+---
+
+### **Issue 5: Slow dashboard loading**
+
+**Symptoms:**
+- Dashboard takes >10 seconds to load
+- Browser becomes unresponsive
+
+**Solutions:**
+1. Reduce time ranges:
+   - Daily charts: Last 30 days (not 90)
+   - Weekly chart: Last 7 days
+   - Monthly chart: Last 12 months
+
+2. Limit data points:
+   - Heatmap: Max 10 coins
+   - Line chart: Max 5 coins
+   - Bar chart: Max 10 coins
+
+3. Optimize Elasticsearch:
+   ```bash
+   # Increase heap size (in docker-compose.yml)
+   ES_JAVA_OPTS: "-Xms2g -Xmx2g"
+   ```
+
+4. Use filters:
+   - Add filter for top market cap coins only
+   - Exclude low-volume coins
+
+---
+
+## 💡 **STEP 6: Tips & Best Practices**
+
+### **Color Guidelines**
+
+```yaml
+Price Trends (Line/Area):
+  - BTC: Blue (#0066CC)
+  - ETH: Green (#00CC66)
+  - BNB: Orange (#FF9900)
+  - SOL: Purple (#9966FF)
+  - ADA: Cyan (#00CCCC)
+
+Performance (Bar):
+  - Positive: Green (#00CC66)
+  - Negative: Red (#FF4444)
+  - Neutral: Gray (#999999)
+
+Heatmap:
+  - Low: Green (#00CC66)
+  - Medium: Yellow (#FFCC00)
+  - High: Red (#FF4444)
+```
+
+### **Time Range Recommendations**
+
+| Chart Type | Recommended Range | Why |
+|------------|------------------|-----|
+| Line Chart (Daily) | Last 30 days | Shows monthly trends clearly |
+| Heatmap (Daily) | Last 30 days | 30 columns fit well on screen |
+| Bar Chart (Weekly) | Last 7 days | Current week performance |
+| Area Chart (Monthly) | Last 12 months | Full year trend |
+
+### **Performance Optimization**
+
+1. **Use appropriate intervals:**
+   - Daily data: 1 day interval
+   - Weekly data: 1 week interval
+   - Monthly data: 1 month interval
+
+2. **Limit breakdown size:**
+   - Line chart: 5 coins max
+   - Heatmap: 10 coins max
+   - Bar chart: 10 coins max
+   - Area chart: 3 coins max
+
+3. **Enable auto-refresh wisely:**
+   - 5 minutes for production
+   - 1 minute for development
+   - Disable for historical analysis
+
+### **Visual Design Tips**
+
+1. **Consistent spacing:**
+   - Use margins between panels
+   - Align panel edges
+   - Keep consistent heights for side-by-side panels
+
+2. **Clear titles:**
+   - Use descriptive names
+   - Include time range in title if relevant
+   - Add emoji for visual appeal 📊📈🔥
+
+3. **Legend placement:**
+   - Right side for line/area charts
+   - Bottom for bar charts
+   - Auto for heatmaps
+
+---
+
+## 📚 **STEP 7: Sample Queries & Filters**
+
+### **Useful KQL Queries**
+
+#### **Filter for large-cap coins only**
+```
+market_cap_close > 10000000000
+```
+
+#### **Filter for high-volume coins**
+```
+volume_sum_day > 1000000000
+```
+
+#### **Filter for volatile coins**
+```
+volatility_day > 15
+```
+
+#### **Filter for specific coins**
+```
+symbol.keyword: (BTC OR ETH OR BNB)
+```
+
+#### **Filter for gainers only**
+```
+return_pct_day > 0
+```
+
+#### **Filter for losers only**
+```
+return_pct_day < 0
+```
+
+### **Dashboard-Level Filters**
+
+Add these as global filters to affect all visualizations:
+
+1. **Top 20 coins by market cap:**
+   ```
+   Add filter → market_cap_close → is between → 1000000000 and 999999999999
+   ```
+
+2. **Exclude stablecoins:**
+   ```
+   Add filter → symbol.keyword → is not one of → USDT, USDC, BUSD, DAI
+   ```
+
+3. **Last 30 days only:**
+   ```
+   Add filter → @timestamp → is between → now-30d and now
+   ```
+
+---
+
+## 🎓 **STEP 8: Next Steps**
+
+### **Immediate Actions**
+1. ✅ Complete the 35-minute setup
+2. ✅ Verify all 4 charts display correctly
+3. ✅ Save dashboard and share URL with team
+4. ✅ Set up auto-refresh for live monitoring
+
+### **Advanced Enhancements**
+1. 🔔 Set up alerts for extreme volatility
+2. 📧 Configure email reports (daily/weekly)
+3. 🔗 Create dashboard links for specific coins
+4. 📱 Enable mobile-friendly view
+
+### **Learning Resources**
+- Kibana Lens Documentation: https://www.elastic.co/guide/en/kibana/current/lens.html
+- Kibana Dashboard Best Practices: https://www.elastic.co/guide/en/kibana/current/dashboard.html
+- Elasticsearch Aggregations: https://www.elastic.co/guide/en/elasticsearch/reference/current/search-aggregations.html
+
+---
+
+## 🎉 **Summary**
+
+### **What You've Built**
+
+✅ **4 Beautiful Visualizations:**
+1. 📈 Multi-Coin Price Trend (Line) - Daily price movements
+2. 🔥 Volume Heatmap (Heat Map) - Trading volume patterns
+3. 📊 Weekly Performance (Bar) - Week-over-week returns
+4. 🌊 Monthly Trend (Area) - Long-term price trends
+
+✅ **1 Professional Dashboard:**
+- Clean layout with 4 panels
+- Auto-refresh every 5 minutes
+- Time range controls
+- Beautiful color schemes
+
+✅ **Total Setup Time:** ~35 minutes
+
+### **Key Takeaways**
+
+💡 **Elasticsearch + Kibana** = Powerful analytics platform  
+💡 **4 chart types** cover all analysis needs  
+💡 **Color coding** makes data instantly understandable  
+💡 **Proper time ranges** ensure fast performance  
+
+---
+
+## 🙏 **Credits**
+
+**Created for:** Crypto Analytics Pipeline  
+**Data Source:** Batch processing (Spark → Elasticsearch)  
+**Visualization Tool:** Kibana 8.x  
+**Last Updated:** 2026-01-13  
+
+---
+
+**Happy Visualizing!** 📊✨🚀
