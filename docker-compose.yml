@@ -440,6 +440,32 @@ services:
       retries: 3
     restart: unless-stopped
 
+  # Web Dashboard - Visualization UI
+  webapp:
+    build:
+      context: ./webapp
+      dockerfile: Dockerfile
+    container_name: webapp
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "8888:8000"
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: crypto_analytics
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+    networks:
+      - bigdata-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    restart: unless-stopped
+
   # ======================
   # 6. DATABASE LAYER
   # ======================
