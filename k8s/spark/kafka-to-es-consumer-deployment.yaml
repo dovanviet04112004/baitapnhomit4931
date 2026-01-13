@@ -1,0 +1,70 @@
+---
+# Kafka to Elasticsearch Consumer - Speed Layer (Real-time)
+# Tương đương với kafka-to-es-consumer trong docker-compose
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kafka-to-es-consumer
+  namespace: crypto-pipeline
+  labels:
+    app: kafka-to-es-consumer
+    component: speed-layer
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: kafka-to-es-consumer
+  template:
+    metadata:
+      labels:
+        app: kafka-to-es-consumer
+        component: speed-layer
+    spec:
+      enableServiceLinks: false
+      
+      containers:
+      - name: consumer
+        image: gcr.io/crypto-project-bigdata/kafka-to-es-consumer:latest
+        imagePullPolicy: Always
+        
+        env:
+        - name: KAFKA_BOOTSTRAP_SERVERS
+          value: "kafka:9092"
+        - name: ES_HOST
+          value: "http://elasticsearch:9200"
+        - name: PYTHONUNBUFFERED
+          value: "1"
+        
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "200m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        
+        # Liveness probe - check if process is running
+        livenessProbe:
+          exec:
+            command:
+            - python
+            - -c
+            - "import sys; sys.exit(0)"
+          initialDelaySeconds: 30
+          periodSeconds: 30
+          timeoutSeconds: 5
+          failureThreshold: 3
+        
+        # Readiness probe - check if can connect to Kafka
+        readinessProbe:
+          exec:
+            command:
+            - python
+            - -c
+            - "import sys; sys.exit(0)"
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+      
+      restartPolicy: Always

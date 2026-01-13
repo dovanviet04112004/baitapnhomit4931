@@ -32,8 +32,8 @@ spec:
           import time
           
           # Config
-          KAFKA_SERVERS = ["kafka-headless:9092"]
-          KAFKA_TOPIC = "raw_crypto"
+          KAFKA_SERVERS = ["kafka:9092"]
+          KAFKA_TOPIC = "crypto-raw"
           ES_HOST = "http://elasticsearch:9200"
           ES_INDEX = "crypto_latest"
           

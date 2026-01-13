@@ -129,7 +129,7 @@ def create_alert_json(df):
     )
 
 
-def write_to_kafka(df, topic, checkpoint_name):
+def write_to_kafka(df, topic, checkpoint_name, output_mode="append"):
     """Ghi stream vào Kafka topic"""
     checkpoint_path = f"{CHECKPOINT_DIR}/{checkpoint_name}"
     
@@ -138,7 +138,7 @@ def write_to_kafka(df, topic, checkpoint_name):
         .option("kafka.bootstrap.servers", KAFKA_BOOTSTRAP) \
         .option("topic", topic) \
         .option("checkpointLocation", checkpoint_path) \
-        .outputMode("append") \
+        .outputMode(output_mode) \
         .start()
 
 
@@ -254,7 +254,7 @@ def main():
             F.col("window_start").cast("string").alias("key"),
             F.to_json(F.struct("*")).alias("value")
         )
-        sentiment_query = write_to_kafka(sentiment_json, MARKET_SENTIMENT_TOPIC, "market_sentiment")
+        sentiment_query = write_to_kafka(sentiment_json, MARKET_SENTIMENT_TOPIC, "market_sentiment", output_mode="update")
         print(f"   ✅ Market sentiment streaming to topic: {MARKET_SENTIMENT_TOPIC}")
         
         # ===== STREAM 4: Console Monitor (for debugging) =====
