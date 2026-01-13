@@ -74,6 +74,58 @@ services:
     networks:
       - bigdata-network
 
+  # ======================
+  # HADOOP HDFS CLUSTER
+  # ======================
+  
+  # Hadoop NameNode - HDFS Master (metadata management)
+  hadoop-namenode:
+    image: bde2020/hadoop-namenode:2.0.0-hadoop3.2.1-java8
+    container_name: hadoop-namenode
+    hostname: hadoop-namenode
+    ports:
+      - "9870:9870"  # HDFS Web UI
+      - "9000:9000"  # HDFS API
+    environment:
+      - CLUSTER_NAME=bigdata-cluster
+      - CORE_CONF_fs_defaultFS=hdfs://hadoop-namenode:9000
+      - CORE_CONF_hadoop_http_staticuser_user=root
+      - CORE_CONF_hadoop_proxyuser_hue_hosts=*
+      - CORE_CONF_hadoop_proxyuser_hue_groups=*
+      - HDFS_CONF_dfs_webhdfs_enabled=true
+      - HDFS_CONF_dfs_permissions_enabled=false
+      - HDFS_CONF_dfs_namenode_datanode_registration_ip___hostname___check=false
+    volumes:
+      - hadoop-namenode:/hadoop/dfs/name
+    networks:
+      - bigdata-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9870"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    restart: unless-stopped
+
+  # Hadoop DataNode - HDFS Worker (data storage)
+  hadoop-datanode:
+    image: bde2020/hadoop-datanode:2.0.0-hadoop3.2.1-java8
+    container_name: hadoop-datanode
+    hostname: hadoop-datanode
+    depends_on:
+      hadoop-namenode:
+        condition: service_healthy
+    environment:
+      - CORE_CONF_fs_defaultFS=hdfs://hadoop-namenode:9000
+      - CORE_CONF_hadoop_http_staticuser_user=root
+      - HDFS_CONF_dfs_webhdfs_enabled=true
+      - HDFS_CONF_dfs_permissions_enabled=false
+      - HDFS_CONF_dfs_datanode_data_dir=file:///hadoop/dfs/data
+    volumes:
+      - hadoop-datanode:/hadoop/dfs/data
+    networks:
+      - bigdata-network
+    restart: unless-stopped
+
   # Elasticsearch - Data storage and search
   elasticsearch:
     image: docker.elastic.co/elasticsearch/elasticsearch:8.13.2
@@ -156,11 +208,13 @@ services:
     depends_on:
       kafka:
         condition: service_healthy
+      hadoop-namenode:
+        condition: service_healthy
     environment:
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       KAFKA_TOPIC: crypto-raw
-    volumes:
-      - ./hdfs/data:/app/data
+      HDFS_NAMENODE_URL: http://hadoop-namenode:9870
+      HDFS_DATA_DIR: /data
     networks:
       - bigdata-network
     restart: unless-stopped
@@ -232,16 +286,56 @@ services:
     depends_on:
       kafka-to-hdfs:
         condition: service_started
+      hadoop-namenode:
+        condition: service_healthy
     environment:
-      HDFS_DATA_DIR: /app/data
+      HDFS_NAMENODE_URL: hdfs://hadoop-namenode:9000
+      HDFS_DATA_DIR: hdfs://hadoop-namenode:9000/data
       PYTHONUNBUFFERED: 1
     volumes:
-      - ./hdfs/data:/app/data
       - ./spark:/app
     networks:
       - bigdata-network
     command: bash -c "chmod +x /app/run_batch_loop.sh && /app/run_batch_loop.sh"
     restart: unless-stopped
+
+  # Data Cleaning Job - Run once for testing
+  data-cleaning:
+    build:
+      context: ./spark
+      dockerfile: batch.Dockerfile
+    container_name: data-cleaning
+    depends_on:
+      kafka-to-hdfs:
+        condition: service_started
+      hadoop-namenode:
+        condition: service_healthy
+    environment:
+      HDFS_NAMENODE_URL: hdfs://hadoop-namenode:9000
+      HDFS_DATA_DIR: hdfs://hadoop-namenode:9000/data
+      PYTHONUNBUFFERED: 1
+    networks:
+      - bigdata-network
+    command: python3 /app/data_cleaning.py
+
+  # Daily Aggregation Job - Run once for testing
+  daily-aggregation:
+    build:
+      context: ./spark
+      dockerfile: batch.Dockerfile
+    container_name: daily-aggregation
+    depends_on:
+      data-cleaning:
+        condition: service_started
+      hadoop-namenode:
+        condition: service_healthy
+    environment:
+      HDFS_NAMENODE_URL: hdfs://hadoop-namenode:9000
+      HDFS_DATA_DIR: hdfs://hadoop-namenode:9000/data
+      PYTHONUNBUFFERED: 1
+    networks:
+      - bigdata-network
+    command: python3 /app/daily_aggregation.py
 
   # Spark to Elasticsearch - Index processed data
   spark-to-es:
@@ -254,12 +348,14 @@ services:
         condition: service_healthy
       spark-batch:
         condition: service_started
+      hadoop-namenode:
+        condition: service_healthy
     environment:
       ES_HOST: http://elasticsearch:9200
-      HDFS_DATA_DIR: /app/data
+      HDFS_NAMENODE_URL: hdfs://hadoop-namenode:9000
+      HDFS_DATA_DIR: hdfs://hadoop-namenode:9000/data
       PYTHONUNBUFFERED: 1
     volumes:
-      - ./hdfs/data:/app/data:ro
       - ./spark:/app
     networks:
       - bigdata-network
@@ -344,6 +440,74 @@ services:
       retries: 3
     restart: unless-stopped
 
+  # ======================
+  # 6. DATABASE LAYER
+  # ======================
+
+  # PostgreSQL - Store aggregated metrics for API/UI
+  postgres:
+    image: postgres:15-alpine
+    container_name: postgres
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: crypto_analytics
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - bigdata-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # pgAdmin - PostgreSQL Web UI
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: pgadmin
+    ports:
+      - "5050:80"
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@admin.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+      PGADMIN_CONFIG_SERVER_MODE: 'False'
+    volumes:
+      - pgadmin-data:/var/lib/pgadmin
+    networks:
+      - bigdata-network
+    depends_on:
+      - postgres
+
+  # Unified Export - Export to PostgreSQL + Elasticsearch
+  export-metrics:
+    build:
+      context: ./spark
+      dockerfile: batch.Dockerfile
+    container_name: export-metrics
+    depends_on:
+      postgres:
+        condition: service_healthy
+      elasticsearch:
+        condition: service_healthy
+      hadoop-namenode:
+        condition: service_healthy
+    environment:
+      HDFS_DATA_DIR: hdfs://hadoop-namenode:9000/data
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: crypto_analytics
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      ES_NODES: elasticsearch
+      ES_PORT: 9200
+      PYTHONUNBUFFERED: 1
+    networks:
+      - bigdata-network
+    command: python3 /app/export_metrics.py
+
 volumes:
   zookeeper-data:
     driver: local
@@ -352,6 +516,14 @@ volumes:
   kafka-data:
     driver: local
   es-data:
+    driver: local
+  hadoop-namenode:
+    driver: local
+  hadoop-datanode:
+    driver: local
+  postgres-data:
+    driver: local
+  pgadmin-data:
     driver: local
 
 networks:

@@ -3,17 +3,24 @@ FROM python:3.9-slim
 
 WORKDIR /app
 
-# Install dependencies
-RUN pip install --no-cache-dir kafka-python
+# Install system dependencies for HDFS client
+RUN apt-get update && apt-get install -y \
+    gcc \
+    g++ \
+    libsasl2-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Python dependencies
+RUN pip install --no-cache-dir \
+    kafka-python \
+    hdfs
 
 # Copy scripts
+COPY kafka_to_hdfs_real.py .
 COPY kafka_to_hdfs_raw.py .
-
-# Create data directory
-RUN mkdir -p /app/data/raw
 
 # Set Python unbuffered mode
 ENV PYTHONUNBUFFERED=1
 
-# Default command
-CMD ["python", "-u", "kafka_to_hdfs_raw.py"]
+# Default command - use HDFS real version
+CMD ["python", "-u", "kafka_to_hdfs_real.py"]
