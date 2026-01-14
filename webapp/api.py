@@ -4,6 +4,8 @@ Connects to PostgreSQL and serves metrics data
 """
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from typing import List, Optional
 import psycopg2
@@ -56,7 +58,6 @@ class DailyMetric(BaseModel):
     rank_close: Optional[int] = None
 
 class WeeklyMetric(BaseModel):
-    year: int
     week_of_year: int
     week_start_date: str
     week_end_date: str
@@ -72,7 +73,6 @@ class WeeklyMetric(BaseModel):
     volume_sum_week: float
 
 class MonthlyMetric(BaseModel):
-    year: int
     month: int
     month_start_date: str
     month_end_date: str
@@ -98,8 +98,33 @@ def get_db_connection():
 
 # Routes
 @app.get("/")
-async def root():
-    """Root endpoint"""
+async def serve_index():
+    """Serve the main HTML page"""
+    return FileResponse("index.html")
+
+@app.get("/app.js")
+async def serve_js():
+    """Serve JavaScript file"""
+    headers = {
+        "Cache-Control": "no-cache, no-store, must-revalidate",
+        "Pragma": "no-cache",
+        "Expires": "0"
+    }
+    return FileResponse("app.js", media_type="application/javascript", headers=headers)
+
+@app.get("/styles.css")
+async def serve_css():
+    """Serve CSS file"""
+    headers = {
+        "Cache-Control": "no-cache, no-store, must-revalidate",
+        "Pragma": "no-cache",
+        "Expires": "0"
+    }
+    return FileResponse("styles.css", media_type="text/css", headers=headers)
+
+@app.get("/api")
+async def api_root():
+    """API root endpoint"""
     return {
         "message": "Crypto Analytics API",
         "version": "1.0.0",
@@ -198,10 +223,9 @@ async def get_weekly_metrics(
     try:
         query = """
             SELECT 
-                year,
                 week_of_year,
-                week_start_date::text,
-                week_end_date::text,
+                week_start_date,
+                week_end_date,
                 coin_id,
                 symbol,
                 name,
@@ -218,17 +242,15 @@ async def get_weekly_metrics(
         params = []
         conditions = []
         
-        if year and week:
-            conditions.append("year = %s AND week_of_year = %s")
-            params.extend([year, week])
-        elif not year and not week:
-            # Get latest week
+        if week:
+            conditions.append("week_of_year = %s")
+            params.append(week)
+        elif not week:
+            # Get latest week based on week_start_date
             conditions.append("""
-                (year, week_of_year) = (
-                    SELECT year, week_of_year 
-                    FROM weekly_metrics 
-                    ORDER BY year DESC, week_of_year DESC 
-                    LIMIT 1
+                week_start_date = (
+                    SELECT MAX(week_start_date) 
+                    FROM weekly_metrics
                 )
             """)
         
@@ -269,10 +291,9 @@ async def get_monthly_metrics(
     try:
         query = """
             SELECT 
-                year,
                 month,
-                month_start_date::text,
-                month_end_date::text,
+                month_start_date,
+                month_end_date,
                 coin_id,
                 symbol,
                 name,
@@ -289,17 +310,15 @@ async def get_monthly_metrics(
         params = []
         conditions = []
         
-        if year and month:
-            conditions.append("year = %s AND month = %s")
-            params.extend([year, month])
-        elif not year and not month:
-            # Get latest month
+        if month:
+            conditions.append("month = %s")
+            params.append(month)
+        elif not month:
+            # Get latest month based on month_start_date
             conditions.append("""
-                (year, month) = (
-                    SELECT year, month 
-                    FROM monthly_metrics 
-                    ORDER BY year DESC, month DESC 
-                    LIMIT 1
+                month_start_date = (
+                    SELECT MAX(month_start_date) 
+                    FROM monthly_metrics
                 )
             """)
         

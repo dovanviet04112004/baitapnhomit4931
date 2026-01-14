@@ -19,20 +19,26 @@ KAFKA_TOPIC = "crypto-raw"  # Match with consumer
 # Source data file
 DATA_FILE = "output/crypto_raw.json"
 
-# Date range to fake (1 ngày - test nhanh)
-START_DATE = "2026-01-07"
-END_DATE = "2026-01-07"
+# Date range to fake (3 tháng)
+START_DATE = "2025-10-12"
+END_DATE = "2026-01-12"
 
 # Số lần crawl mỗi ngày (24 lần = mỗi giờ 1 lần)
 CRAWLS_PER_DAY = 24
 
 # Fake coins để thêm vào top 100 (mô phỏng coin mới vào top)
+# Fake coins để thêm vào top 100 (mô phỏng coin mới vào top - Sử dụng Data thật)
 FAKE_NEW_COINS = [
-    {"coin_id": "fake-moon-1", "symbol": "MOON1", "name": "MoonShot Token", "current_price": 0.05, "market_cap": 500000000, "total_volume": 50000000, "circulating_supply": 10000000000},
-    {"coin_id": "fake-rocket-2", "symbol": "ROCK2", "name": "Rocket Finance", "current_price": 1.25, "market_cap": 450000000, "total_volume": 30000000, "circulating_supply": 360000000},
-    {"coin_id": "fake-degen-3", "symbol": "DEGEN", "name": "Degen Protocol", "current_price": 0.008, "market_cap": 400000000, "total_volume": 80000000, "circulating_supply": 50000000000},
-    {"coin_id": "fake-ai-4", "symbol": "AIBOT", "name": "AI Bot Network", "current_price": 2.50, "market_cap": 380000000, "total_volume": 25000000, "circulating_supply": 152000000},
-    {"coin_id": "fake-meme-5", "symbol": "MEME5", "name": "Super Meme Coin", "current_price": 0.0001, "market_cap": 350000000, "total_volume": 100000000, "circulating_supply": 3500000000000},
+    {"coin_id": "pepe", "symbol": "PEPE", "name": "Pepe", "current_price": 0.000009, "market_cap": 3800000000, "total_volume": 600000000, "circulating_supply": 420690000000000},
+    {"coin_id": "sui", "symbol": "SUI", "name": "Sui", "current_price": 1.65, "market_cap": 3500000000, "total_volume": 400000000, "circulating_supply": 2300000000},
+    {"coin_id": "aptos", "symbol": "APT", "name": "Aptos", "current_price": 8.50, "market_cap": 4000000000, "total_volume": 250000000, "circulating_supply": 450000000},
+    {"coin_id": "worldcoin-wld", "symbol": "WLD", "name": "Worldcoin", "current_price": 2.20, "market_cap": 1200000000, "total_volume": 150000000, "circulating_supply": 550000000},
+    {"coin_id": "floki", "symbol": "FLOKI", "name": "Floki", "current_price": 0.00014, "market_cap": 1400000000, "total_volume": 100000000, "circulating_supply": 9500000000000},
+    {"coin_id": "arbitrum", "symbol": "ARB", "name": "Arbitrum", "current_price": 1.80, "market_cap": 2300000000, "total_volume": 350000000, "circulating_supply": 1275000000},
+    {"coin_id": "optimism", "symbol": "OP", "name": "Optimism", "current_price": 3.50, "market_cap": 3800000000, "total_volume": 200000000, "circulating_supply": 1080000000},
+    {"coin_id": "render-token", "symbol": "RNDR", "name": "Render", "current_price": 10.00, "market_cap": 3800000000, "total_volume": 180000000, "circulating_supply": 380000000},
+    {"coin_id": "bonk", "symbol": "BONK", "name": "Bonk", "current_price": 0.000025, "market_cap": 1600000000, "total_volume": 120000000, "circulating_supply": 63000000000000},
+    {"coin_id": "fetch-ai", "symbol": "FET", "name": "Fetch.ai", "current_price": 2.50, "market_cap": 2100000000, "total_volume": 250000000, "circulating_supply": 840000000},
 ]
 
 

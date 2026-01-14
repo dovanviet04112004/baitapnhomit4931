@@ -16,11 +16,12 @@ from pyspark.sql import functions as F
 from pyspark.sql.window import Window
 from pyspark.sql.types import DoubleType, TimestampType, LongType, IntegerType
 
-# Paths
-HDFS_DATA_DIR = os.getenv("HDFS_DATA_DIR", "/app/data")
-RAW_PATH = f"{HDFS_DATA_DIR}/raw"
-CLEAN_PATH = f"{HDFS_DATA_DIR}/clean"
-CHECKPOINT_PATH = f"{HDFS_DATA_DIR}/checkpoints/data_cleaning"
+# Paths - GCS
+GCS_BUCKET = os.getenv("GCS_BUCKET_NAME", "crypto-pipeline-data")
+GCS_DATA_DIR = os.getenv("GCS_DATA_DIR", "data")
+RAW_PATH = f"gs://{GCS_BUCKET}/{GCS_DATA_DIR}/raw"
+CLEAN_PATH = f"gs://{GCS_BUCKET}/{GCS_DATA_DIR}/clean"
+CHECKPOINT_PATH = f"gs://{GCS_BUCKET}/{GCS_DATA_DIR}/checkpoints/data_cleaning"
 
 
 class CheckpointManager:
@@ -53,23 +54,26 @@ class CheckpointManager:
             # Create DataFrame with timestamp
             df = self.spark.createDataFrame([(timestamp.isoformat(),)], ["timestamp"])
             
-            # Write to HDFS (overwrite old checkpoint)
+            # Write to GCS (overwrite old checkpoint)
             df.write.mode("overwrite").text(self.checkpoint_file)
             
-            print(f"   ✅ Checkpoint saved: {timestamp}")
+            print(f"   ✅ Checkpoint saved to GCS: {timestamp}")
         except Exception as e:
             print(f"   ❌ Failed to save checkpoint: {e}")
             raise
 
 
 def create_spark_session():
-    """Create Spark session with optimized configs"""
+    """Create Spark session with GCS support"""
     return SparkSession.builder \
-        .appName("CryptoDataCleaning_Production") \
+        .appName("CryptoDataCleaning_GCS") \
         .config("spark.sql.legacy.timeParserPolicy", "LEGACY") \
         .config("spark.sql.adaptive.enabled", "true") \
         .config("spark.sql.adaptive.coalescePartitions.enabled", "true") \
         .config("spark.sql.sources.partitionOverwriteMode", "dynamic") \
+        .config("spark.hadoop.google.cloud.auth.service.account.enable", "true") \
+        .config("spark.hadoop.fs.gs.impl", "com.google.cloud.hadoop.fs.gcs.GoogleHadoopFileSystem") \
+        .config("spark.hadoop.fs.AbstractFileSystem.gs.impl", "com.google.cloud.hadoop.fs.gcs.GoogleHadoopFS") \
         .getOrCreate()
 
 

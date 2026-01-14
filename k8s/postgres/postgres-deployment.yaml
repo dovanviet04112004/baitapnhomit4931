@@ -1,0 +1,173 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: postgres-init
+  namespace: crypto-pipeline
+data:
+  init.sql: |
+    -- Create database
+    CREATE DATABASE IF NOT EXISTS crypto_analytics;
+    \c crypto_analytics;
+    
+    -- Daily metrics table
+    CREATE TABLE IF NOT EXISTS daily_metrics (
+      coin_id VARCHAR(50),
+      symbol VARCHAR(20),
+      name VARCHAR(100),
+      date VARCHAR(50),
+      open_price DOUBLE PRECISION,
+      close_price DOUBLE PRECISION,
+      high_price DOUBLE PRECISION,
+      low_price DOUBLE PRECISION,
+      avg_price DOUBLE PRECISION,
+      total_volume BIGINT,
+      total_market_cap BIGINT,
+      return_pct_day DOUBLE PRECISION,
+      volatility_day DOUBLE PRECISION,
+      price_change_day DOUBLE PRECISION,
+      volume_rank INT,
+      market_cap_rank INT,
+      price_rank INT,
+      year INT,
+      month INT,
+      PRIMARY KEY (coin_id, date)
+    );
+    
+    -- Weekly metrics table
+    CREATE TABLE IF NOT EXISTS weekly_metrics (
+      coin_id VARCHAR(50),
+      symbol VARCHAR(20),
+      name VARCHAR(100),
+      year INT,
+      week_of_year INT,
+      week_start_date VARCHAR(50),
+      week_end_date VARCHAR(50),
+      open_price DOUBLE PRECISION,
+      close_price DOUBLE PRECISION,
+      high_price DOUBLE PRECISION,
+      low_price DOUBLE PRECISION,
+      avg_price DOUBLE PRECISION,
+      total_volume BIGINT,
+      avg_market_cap BIGINT,
+      return_pct_week DOUBLE PRECISION,
+      volatility_week DOUBLE PRECISION,
+      price_change_week DOUBLE PRECISION,
+      PRIMARY KEY (coin_id, year, week_of_year)
+    );
+    
+    -- Monthly metrics table
+    CREATE TABLE IF NOT EXISTS monthly_metrics (
+      coin_id VARCHAR(50),
+      symbol VARCHAR(20),
+      name VARCHAR(100),
+      year INT,
+      month INT,
+      month_start_date VARCHAR(50),
+      month_end_date VARCHAR(50),
+      open_price DOUBLE PRECISION,
+      close_price DOUBLE PRECISION,
+      high_price DOUBLE PRECISION,
+      low_price DOUBLE PRECISION,
+      avg_price DOUBLE PRECISION,
+      total_volume BIGINT,
+      avg_market_cap BIGINT,
+      return_pct_month DOUBLE PRECISION,
+      volatility_month DOUBLE PRECISION,
+      price_change_month DOUBLE PRECISION,
+      PRIMARY KEY (coin_id, year, month)
+    );
+    
+    -- Create indexes for better query performance
+    CREATE INDEX IF NOT EXISTS idx_daily_date ON daily_metrics(date);
+    CREATE INDEX IF NOT EXISTS idx_daily_coin ON daily_metrics(coin_id);
+    CREATE INDEX IF NOT EXISTS idx_daily_symbol ON daily_metrics(symbol);
+    CREATE INDEX IF NOT EXISTS idx_daily_return ON daily_metrics(return_pct_day DESC);
+    
+    CREATE INDEX IF NOT EXISTS idx_weekly_date ON weekly_metrics(week_start_date);
+    CREATE INDEX IF NOT EXISTS idx_weekly_coin ON weekly_metrics(coin_id);
+    
+    CREATE INDEX IF NOT EXISTS idx_monthly_date ON monthly_metrics(month_start_date);
+    CREATE INDEX IF NOT EXISTS idx_monthly_coin ON monthly_metrics(coin_id);
+
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: postgres
+  namespace: crypto-pipeline
+spec:
+  serviceName: postgres
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgres
+  template:
+    metadata:
+      labels:
+        app: postgres
+    spec:
+      containers:
+      - name: postgres
+        image: postgres:15-alpine
+        ports:
+        - containerPort: 5432
+          name: postgres
+        env:
+        - name: POSTGRES_DB
+          value: "crypto_analytics"
+        - name: POSTGRES_USER
+          value: "postgres"
+        - name: POSTGRES_PASSWORD
+          value: "postgres"
+        - name: PGDATA
+          value: "/var/lib/postgresql/data/pgdata"
+        volumeMounts:
+        - name: postgres-storage
+          mountPath: /var/lib/postgresql/data
+        - name: init-script
+          mountPath: /docker-entrypoint-initdb.d
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "250m"
+          limits:
+            memory: "1Gi"
+            cpu: "500m"
+        livenessProbe:
+          exec:
+            command:
+            - pg_isready
+            - -U
+            - postgres
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          exec:
+            command:
+            - pg_isready
+            - -U
+            - postgres
+          initialDelaySeconds: 5
+          periodSeconds: 5
+      volumes:
+      - name: postgres-storage
+        persistentVolumeClaim:
+          claimName: postgres-pvc
+      - name: init-script
+        configMap:
+          name: postgres-init
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres
+  namespace: crypto-pipeline
+spec:
+  selector:
+    app: postgres
+  ports:
+  - port: 5432
+    targetPort: 5432
+    name: postgres
+  clusterIP: None

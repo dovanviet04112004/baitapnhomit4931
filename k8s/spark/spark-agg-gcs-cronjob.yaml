@@ -1,0 +1,71 @@
+---
+# CronJob for daily aggregation (daily at 1 AM)
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: spark-agg-gcs
+  namespace: crypto-pipeline
+  labels:
+    app: spark-batch
+    component: daily-aggregation
+spec:
+  # Run daily at 1:00 AM
+  schedule: "0 1 * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 7
+  failedJobsHistoryLimit: 3
+  
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      ttlSecondsAfterFinished: 86400  # Keep for 24h
+      
+      template:
+        metadata:
+          labels:
+            app: spark-batch
+            component: daily-aggregation
+        spec:
+          serviceAccountName: kafka-to-gcs  # Reuse existing SA with GCS access
+          restartPolicy: Never
+          
+          containers:
+          - name: spark-agg
+            image: gcr.io/crypto-project-bigdata/spark-batch-gcs:latest
+            imagePullPolicy: Always
+            
+            command:
+            - /opt/spark/bin/spark-submit
+            - --master
+            - local[2]
+            - --driver-memory
+            - 2g
+            - --executor-memory
+            - 2g
+            - /app/daily_aggregation.py
+            
+            env:
+            - name: GCS_BUCKET_NAME
+              value: "crypto-pipeline-data"
+            - name: GCS_DATA_DIR
+              value: "data"
+            - name: GOOGLE_APPLICATION_CREDENTIALS
+              value: "/var/secrets/google/key.json"
+            
+            volumeMounts:
+            - name: gcs-credentials
+              mountPath: /var/secrets/google
+              readOnly: true
+            
+            resources:
+              requests:
+                memory: "2Gi"
+                cpu: "1000m"
+              limits:
+                memory: "4Gi"
+                cpu: "2000m"
+          
+          volumes:
+          - name: gcs-credentials
+            secret:
+              secretName: gcs-credentials

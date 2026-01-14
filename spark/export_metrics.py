@@ -5,16 +5,17 @@ Export aggregated metrics to both PostgreSQL and Elasticsearch
 PostgreSQL: For API/UI queries
 Elasticsearch: For Kibana analytics & dashboards
 
-Strategy: Read HDFS once, write to both targets
+Strategy: Read GCS once, write to both targets
 """
 import os
 from datetime import datetime
 from pyspark.sql import SparkSession
 from pyspark.sql import functions as F
 
-# Paths
-HDFS_DATA_DIR = os.getenv("HDFS_DATA_DIR", "/app/data")
-AGG_PATH = f"{HDFS_DATA_DIR}/aggregated"
+# GCS Paths
+GCS_BUCKET = os.getenv("GCS_BUCKET_NAME", "crypto-pipeline-data")
+GCS_DATA_DIR = "data"
+AGG_PATH = f"gs://{GCS_BUCKET}/{GCS_DATA_DIR}/aggregated"
 
 # PostgreSQL connection
 POSTGRES_HOST = os.getenv("POSTGRES_HOST", "postgres")
@@ -30,11 +31,15 @@ ES_PORT = os.getenv("ES_PORT", "9200")
 
 
 def create_spark_session():
-    """Create Spark session with PostgreSQL and Elasticsearch connectors"""
+    """Create Spark session with PostgreSQL, Elasticsearch and GCS connectors"""
     return SparkSession.builder \
-        .appName("UnifiedExport_Production") \
+        .appName("UnifiedExport_GCS_Production") \
         .config("spark.jars", "/opt/spark/jars/postgresql-42.6.0.jar,/opt/spark/jars/elasticsearch-spark-30_2.12-8.11.0.jar") \
         .config("spark.sql.legacy.timeParserPolicy", "LEGACY") \
+        .config("spark.hadoop.google.cloud.auth.service.account.enable", "true") \
+        .config("spark.hadoop.google.cloud.auth.service.account.json.keyfile", "/var/secrets/google/key.json") \
+        .config("spark.hadoop.fs.gs.impl", "com.google.cloud.hadoop.fs.gcs.GoogleHadoopFileSystem") \
+        .config("spark.hadoop.fs.AbstractFileSystem.gs.impl", "com.google.cloud.hadoop.fs.gcs.GoogleHadoopFS") \
         .getOrCreate()
 
 
@@ -47,10 +52,10 @@ def export_daily_metrics(spark):
     current_year = datetime.now().year
     print(f"\n📅 Target year: {current_year}")
     
-    # Read from HDFS (once!)
-    print(f"\n📖 Reading from: {AGG_PATH}/daily_metrics/year={current_year}")
+    # Read from GCS (all data)
+    print(f"\n📖 Reading from: {AGG_PATH}/daily_metrics")
     try:
-        df = spark.read.parquet(f"{AGG_PATH}/daily_metrics/year={current_year}")
+        df = spark.read.parquet(f"{AGG_PATH}/daily_metrics")
         count = df.count()
         print(f"   ✅ Loaded {count:,} records")
     except Exception as e:
@@ -114,10 +119,10 @@ def export_weekly_metrics(spark):
     current_year = datetime.now().year
     print(f"\n📅 Target year: {current_year}")
     
-    # Read from HDFS
-    print(f"\n📖 Reading from: {AGG_PATH}/weekly_metrics/year={current_year}")
+    # Read from GCS (all data)
+    print(f"\n📖 Reading from: {AGG_PATH}/weekly_metrics")
     try:
-        df = spark.read.parquet(f"{AGG_PATH}/weekly_metrics/year={current_year}")
+        df = spark.read.parquet(f"{AGG_PATH}/weekly_metrics")
         count = df.count()
         print(f"   ✅ Loaded {count:,} records")
     except Exception as e:
@@ -183,10 +188,10 @@ def export_monthly_metrics(spark):
     current_year = datetime.now().year
     print(f"\n📅 Target year: {current_year}")
     
-    # Read from HDFS
-    print(f"\n📖 Reading from: {AGG_PATH}/monthly_metrics/year={current_year}")
+    # Read from GCS (all data)
+    print(f"\n📖 Reading from: {AGG_PATH}/monthly_metrics")
     try:
-        df = spark.read.parquet(f"{AGG_PATH}/monthly_metrics/year={current_year}")
+        df = spark.read.parquet(f"{AGG_PATH}/monthly_metrics")
         count = df.count()
         print(f"   ✅ Loaded {count:,} records")
     except Exception as e:

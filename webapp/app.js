@@ -1,5 +1,5 @@
 // Configuration
-const API_BASE_URL = 'http://localhost:8888/api'; // Backend API running in Docker
+const API_BASE_URL = '/api'; // Use relative path for same-origin requests
 const USE_MOCK_DATA = false; // Set to false when backend is ready
 
 // State

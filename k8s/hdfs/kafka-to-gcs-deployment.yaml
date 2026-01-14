@@ -1,0 +1,83 @@
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: kafka-to-gcs
+  namespace: crypto-pipeline
+  annotations:
+    iam.gke.io/gcp-service-account: gcs-kafka-consumer@crypto-project-bigdata.iam.gserviceaccount.com
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kafka-to-gcs
+  namespace: crypto-pipeline
+  labels:
+    app: kafka-to-gcs
+    component: data-ingestion
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: kafka-to-gcs
+  template:
+    metadata:
+      labels:
+        app: kafka-to-gcs
+        component: data-ingestion
+    spec:
+      serviceAccountName: kafka-to-gcs
+      enableServiceLinks: false
+      
+      containers:
+      - name: consumer
+        image: gcr.io/crypto-project-bigdata/kafka-to-gcs:latest
+        imagePullPolicy: Always
+        
+        env:
+        - name: KAFKA_BOOTSTRAP_SERVERS
+          value: "kafka:9092"
+        - name: KAFKA_TOPIC
+          value: "crypto-raw"
+        - name: GCS_BUCKET_NAME
+          value: "crypto-pipeline-data"
+        - name: GCS_DATA_DIR
+          value: "data"
+        - name: MAX_MESSAGES
+          value: "-1"  # Run continuously (infinite messages)
+        - name: PYTHONUNBUFFERED
+          value: "1"
+        - name: GOOGLE_APPLICATION_CREDENTIALS
+          value: "/var/secrets/google/key.json"
+        
+        volumeMounts:
+        - name: gcs-credentials
+          mountPath: /var/secrets/google
+          readOnly: true
+        
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "250m"
+          limits:
+            memory: "1Gi"
+            cpu: "500m"
+        
+        # Liveness probe
+        livenessProbe:
+          exec:
+            command:
+            - python
+            - -c
+            - "import sys; sys.exit(0)"
+          initialDelaySeconds: 30
+          periodSeconds: 30
+          timeoutSeconds: 5
+          failureThreshold: 3
+      
+      volumes:
+      - name: gcs-credentials
+        secret:
+          secretName: gcs-credentials
+      
+      restartPolicy: Always
