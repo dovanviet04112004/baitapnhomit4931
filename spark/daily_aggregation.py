@@ -1,7 +1,7 @@
 """
 Daily/Weekly/Monthly Aggregation Job - INCREMENTAL VERSION
-Input: Clean Parquet from HDFS (/data/clean)
-Output: Aggregated metrics to HDFS (/data/aggregated)
+Input: Clean Parquet from GCS (gs://bucket/data/clean)
+Output: Aggregated metrics to GCS (gs://bucket/data/aggregated)
 
 Features:
 - Checkpoint-based incremental processing
@@ -21,20 +21,24 @@ from pyspark.sql import functions as F
 from pyspark.sql.window import Window
 from pyspark.sql.types import DoubleType
 
-# Paths
-HDFS_DATA_DIR = os.getenv("HDFS_DATA_DIR", "/app/data")
-CLEAN_PATH = f"{HDFS_DATA_DIR}/clean"
-AGG_PATH = f"{HDFS_DATA_DIR}/aggregated"
-CHECKPOINT_PATH = f"{HDFS_DATA_DIR}/checkpoints/daily_aggregation_checkpoint.txt"
+# Paths - GCS
+GCS_BUCKET = os.getenv("GCS_BUCKET_NAME", "crypto-pipeline-data")
+GCS_DATA_DIR = os.getenv("GCS_DATA_DIR", "data")
+CLEAN_PATH = f"gs://{GCS_BUCKET}/{GCS_DATA_DIR}/clean"
+AGG_PATH = f"gs://{GCS_BUCKET}/{GCS_DATA_DIR}/aggregated"
+CHECKPOINT_PATH = f"gs://{GCS_BUCKET}/{GCS_DATA_DIR}/checkpoints/daily_aggregation_checkpoint.txt"
 
 
 def create_spark_session():
-    """Create Spark session with optimized configs"""
+    """Create Spark session with GCS support"""
     return SparkSession.builder \
-        .appName("CryptoDailyAggregation-Incremental") \
+        .appName("CryptoDailyAggregation-GCS") \
         .config("spark.sql.legacy.timeParserPolicy", "LEGACY") \
         .config("spark.sql.adaptive.enabled", "true") \
         .config("spark.sql.sources.partitionOverwriteMode", "dynamic") \
+        .config("spark.hadoop.google.cloud.auth.service.account.enable", "true") \
+        .config("spark.hadoop.fs.gs.impl", "com.google.cloud.hadoop.fs.gcs.GoogleHadoopFileSystem") \
+        .config("spark.hadoop.fs.AbstractFileSystem.gs.impl", "com.google.cloud.hadoop.fs.gcs.GoogleHadoopFS") \
         .getOrCreate()
 
 
@@ -179,8 +183,8 @@ def calculate_daily_metrics(spark):
         # High and low
         F.max("current_price").alias("high_price"),
         F.min("current_price").alias("low_price"),
-        # Volume
-        F.sum("total_volume").alias("volume_sum_day"),
+        # Volume (Use last recorded 24h volume of the day, do NOT sum)
+        F.last("total_volume", ignorenulls=True).alias("volume_sum_day"),
         # Market cap (use latest)
         F.last("market_cap", ignorenulls=True).alias("market_cap_close"),
         F.last("market_cap_rank", ignorenulls=True).alias("market_cap_rank_close"),
