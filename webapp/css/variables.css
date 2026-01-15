@@ -1,0 +1,90 @@
+:root {
+  /* Default Dark Theme Variables */
+  --bg-primary: #0b0e14;
+  --bg-secondary: #151a25;
+  --bg-glass: rgba(21, 26, 37, 0.7);
+  --bg-glass-hover: rgba(30, 41, 59, 0.6);
+
+  --text-primary: #ffffff;
+  --text-secondary: #94a3b8;
+  --text-muted: #64748b;
+
+  --border-color: rgba(148, 163, 184, 0.1);
+  --border-highlight: rgba(255, 255, 255, 0.1);
+
+  /* Accents */
+  --color-green: #00ff9d;
+  --color-green-glow: rgba(0, 255, 157, 0.2);
+  --color-red: #ff3b3b;
+  --color-red-glow: rgba(255, 59, 59, 0.2);
+  --color-blue: #00f3ff;
+  --color-blue-glow: rgba(0, 243, 255, 0.2);
+  --color-purple: #bd00ff;
+  --color-purple-glow: rgba(189, 0, 255, 0.2);
+  --color-yellow: #ffe600;
+
+  --gradient-primary: linear-gradient(135deg, #00f3ff 0%, #bd00ff 100%);
+
+  /* Spacing & Radius */
+  --spacing-xs: 0.5rem;
+  --spacing-sm: 1rem;
+  --spacing-md: 1.5rem;
+  --spacing-lg: 2rem;
+  --spacing-xl: 3rem;
+  --radius-sm: 8px;
+  --radius-md: 16px;
+  --radius-lg: 24px;
+
+  /* Effects */
+  --blur-strength: 12px;
+  --shadow-sm: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 10px 15px -3px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 20px 25px -5px rgba(0, 0, 0, 0.5);
+  --shadow-neon: 0 0 15px var(--color-blue-glow);
+
+  /* Specific Element Gradients */
+  --logo-gradient: linear-gradient(to right, #fff, #94a3b8);
+  --chart-bg: linear-gradient(
+    180deg,
+    var(--bg-glass) 0%,
+    rgba(15, 20, 30, 0.4) 100%
+  );
+}
+
+/* Light Theme Overrides */
+[data-theme="light"] {
+  --bg-primary: #f8fafc;
+  --bg-secondary: #ffffff;
+  --bg-glass: rgba(255, 255, 255, 0.8);
+  --bg-glass-hover: rgba(241, 245, 249, 0.9);
+
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --text-muted: #64748b;
+
+  --border-color: rgba(148, 163, 184, 0.2);
+  --border-highlight: rgba(15, 23, 42, 0.05);
+
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.05);
+  --shadow-neon: none; /* No neon glow in light mode */
+
+  /* Light Theme Gradients */
+  --logo-gradient: linear-gradient(to right, #0f172a, #334155);
+  --chart-bg: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.5) 0%,
+    rgba(248, 250, 252, 0.8) 100%
+  );
+
+  /* Adjust accents for light background contrast if needed */
+  --color-green: #059669;
+  --color-green-glow: rgba(5, 150, 105, 0.1);
+  --color-red: #dc2626;
+  --color-red-glow: rgba(220, 38, 38, 0.1);
+  --color-blue: #2563eb;
+  --color-blue-glow: rgba(37, 99, 235, 0.05);
+  --color-purple: #7c3aed;
+  --color-purple-glow: rgba(124, 58, 237, 0.05);
+}
