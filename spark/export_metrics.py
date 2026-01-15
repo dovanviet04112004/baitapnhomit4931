@@ -56,6 +56,11 @@ def export_daily_metrics(spark):
     print(f"\n📖 Reading from: {AGG_PATH}/daily_metrics")
     try:
         df = spark.read.parquet(f"{AGG_PATH}/daily_metrics")
+        
+        # Drop partition columns (year, month, day) as they're redundant with 'date'
+        if "day" in df.columns:
+            df = df.drop("day")
+        
         count = df.count()
         print(f"   ✅ Loaded {count:,} records")
     except Exception as e:
@@ -129,6 +134,9 @@ def export_weekly_metrics(spark):
         print(f"   ⚠️  No weekly metrics found: {e}")
         return
     
+    # Note: 'year' and 'week_of_year' are partition columns but also data columns
+    # Keep them as they're useful for querying
+    
     # Prepare for PostgreSQL
     df_postgres = df.withColumn("week_start_date", F.col("week_start_date").cast("string")) \
                     .withColumn("week_end_date", F.col("week_end_date").cast("string"))
@@ -197,6 +205,9 @@ def export_monthly_metrics(spark):
     except Exception as e:
         print(f"   ⚠️  No monthly metrics found: {e}")
         return
+    
+    # Note: 'year' and 'month' are partition columns but also data columns
+    # Keep them as they're useful for querying
     
     # Prepare for PostgreSQL
     df_postgres = df.withColumn("month_start_date", F.col("month_start_date").cast("string")) \

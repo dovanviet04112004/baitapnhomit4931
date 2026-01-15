@@ -230,11 +230,13 @@ async def get_weekly_metrics(
             conditions.append("week_of_year = %s")
             params.append(week)
         elif not week:
-            # Get latest week based on week_start_date
+            # Get latest week based on year and week_of_year
             conditions.append("""
-                week_start_date = (
-                    SELECT MAX(week_start_date) 
+                (year, week_of_year) = (
+                    SELECT year, week_of_year
                     FROM weekly_metrics
+                    ORDER BY year DESC, week_of_year DESC
+                    LIMIT 1
                 )
             """)
         
@@ -298,11 +300,13 @@ async def get_monthly_metrics(
             conditions.append("month = %s")
             params.append(month)
         elif not month:
-            # Get latest month based on month_start_date
+            # Get latest month based on year and month
             conditions.append("""
-                month_start_date = (
-                    SELECT MAX(month_start_date) 
+                (year, month) = (
+                    SELECT year, month
                     FROM monthly_metrics
+                    ORDER BY year DESC, month DESC
+                    LIMIT 1
                 )
             """)
         

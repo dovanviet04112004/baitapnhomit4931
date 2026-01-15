@@ -250,21 +250,24 @@ def calculate_daily_metrics(spark):
     print(f"   ✅ Calculated metrics for {record_count:,} coin-days")
     
     # 4. Save with DYNAMIC PARTITION OVERWRITE
-    # Only overwrites partitions (year/month) that have data in daily_metrics
+    # Partition by year/month/day to prevent overwriting other days in the same month
     output_path = f"{AGG_PATH}/daily_metrics"
     print(f"\n💾 Saving daily metrics to: {output_path}")
-    print(f"   📦 Mode: Dynamic Partition Overwrite (only affected year/month)")
+    print(f"   📦 Mode: Dynamic Partition Overwrite (only affected year/month/day)")
+    
+    # Add day column for partitioning
+    daily_metrics = daily_metrics.withColumn("day", F.dayofmonth(F.col("date")))
     
     # Get affected partitions
-    affected_partitions = daily_metrics.select("year", "month").distinct().collect()
+    affected_partitions = daily_metrics.select("year", "month", "day").distinct().collect()
     print(f"   📂 Affected partitions:")
     for row in affected_partitions:
-        print(f"      - year={row['year']}/month={row['month']}")
+        print(f"      - year={row['year']}/month={row['month']}/day={row['day']}")
     
     daily_metrics.write \
         .mode("overwrite") \
         .option("partitionOverwriteMode", "dynamic") \
-        .partitionBy("year", "month") \
+        .partitionBy("year", "month", "day") \
         .parquet(output_path)
     
     print("   ✅ Daily metrics saved")
@@ -392,20 +395,21 @@ def calculate_weekly_metrics(spark, daily_metrics_new):
     print(f"   ✅ Calculated metrics for {record_count:,} coin-weeks")
     
     # 5. Save with dynamic partition overwrite
+    # Partition by year/week_of_year to prevent overwriting other weeks in the same year
     output_path = f"{AGG_PATH}/weekly_metrics"
     print(f"\n💾 Saving weekly metrics to: {output_path}")
-    print(f"   📦 Mode: Dynamic Partition Overwrite (only affected years)")
+    print(f"   📦 Mode: Dynamic Partition Overwrite (only affected year/week)")
     
     # Get affected partitions
-    affected_years = weekly_metrics.select("year").distinct().collect()
+    affected_partitions = weekly_metrics.select("year", "week_of_year").distinct().collect()
     print(f"   📂 Affected partitions:")
-    for row in affected_years:
-        print(f"      - year={row['year']}")
+    for row in affected_partitions:
+        print(f"      - year={row['year']}/week_of_year={row['week_of_year']}")
     
     weekly_metrics.write \
         .mode("overwrite") \
         .option("partitionOverwriteMode", "dynamic") \
-        .partitionBy("year") \
+        .partitionBy("year", "week_of_year") \
         .parquet(output_path)
     
     print("   ✅ Weekly metrics saved")
@@ -527,20 +531,21 @@ def calculate_monthly_metrics(spark, daily_metrics_new):
     print(f"   ✅ Calculated metrics for {record_count:,} coin-months")
     
     # 5. Save with dynamic partition overwrite
+    # Partition by year/month to prevent overwriting other months in the same year
     output_path = f"{AGG_PATH}/monthly_metrics"
     print(f"\n💾 Saving monthly metrics to: {output_path}")
-    print(f"   📦 Mode: Dynamic Partition Overwrite (only affected years)")
+    print(f"   📦 Mode: Dynamic Partition Overwrite (only affected year/month)")
     
     # Get affected partitions
-    affected_years = monthly_metrics.select("year").distinct().collect()
+    affected_partitions = monthly_metrics.select("year", "month").distinct().collect()
     print(f"   📂 Affected partitions:")
-    for row in affected_years:
-        print(f"      - year={row['year']}")
+    for row in affected_partitions:
+        print(f"      - year={row['year']}/month={row['month']}")
     
     monthly_metrics.write \
         .mode("overwrite") \
         .option("partitionOverwriteMode", "dynamic") \
-        .partitionBy("year") \
+        .partitionBy("year", "month") \
         .parquet(output_path)
     
     print("   ✅ Monthly metrics saved")
