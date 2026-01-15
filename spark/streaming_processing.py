@@ -24,9 +24,16 @@ ALERTS_TOPIC = "alerts"
 CLEAN_TOPIC = "clean_crypto"
 MARKET_SENTIMENT_TOPIC = "market_sentiment"
 
-# Paths
-BASE_DIR = Path(__file__).resolve().parent.parent
-CHECKPOINT_DIR = str(BASE_DIR / "hdfs" / "checkpoints" / "streaming")
+# Checkpoint Directory
+# Trong Kubernetes: sử dụng PVC mount tại /checkpoints
+# Local development: sử dụng hdfs/checkpoints/streaming
+if os.path.exists("/checkpoints"):
+    # Running in Kubernetes with PVC
+    CHECKPOINT_DIR = "/checkpoints"
+else:
+    # Running locally
+    BASE_DIR = Path(__file__).resolve().parent.parent
+    CHECKPOINT_DIR = str(BASE_DIR / "hdfs" / "checkpoints" / "streaming")
 
 # Alert thresholds
 PUMP_1H_THRESHOLD = 5.0      # >5% trong 1h = pump

@@ -1,0 +1,18 @@
+---
+# PersistentVolumeClaim for Spark Streaming Checkpoints
+# Đảm bảo checkpoint data không bị mất khi pod restart
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: spark-streaming-checkpoint
+  namespace: crypto-pipeline
+  labels:
+    app: spark-streaming
+    component: checkpoint-storage
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
+  storageClassName: standard-rwo  # GKE default StorageClass

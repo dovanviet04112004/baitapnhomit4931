@@ -34,7 +34,9 @@ spec:
         - --packages
         - org.apache.spark:spark-sql-kafka-0-10_2.12:3.4.1
         - --conf
-        - spark.sql.streaming.checkpointLocation=/tmp/checkpoints
+        - spark.sql.streaming.checkpointLocation=/checkpoints
+        - --conf
+        - spark.metrics.namespace=crypto_streaming
         - /app/streaming_processing.py
         
         env:
@@ -44,6 +46,8 @@ spec:
           value: "crypto-raw"
         - name: PYTHONUNBUFFERED
           value: "1"
+        - name: SPARK_METRICS_NAMESPACE
+          value: "crypto_streaming"
         
         resources:
           requests:
@@ -55,19 +59,20 @@ spec:
         
         volumeMounts:
         - name: checkpoint-dir
-          mountPath: /tmp/checkpoints
+          mountPath: /checkpoints
         
-        # Liveness probe - check if Python/Java process is running
+        # Liveness probe - check if Spark process is running
+        # Tăng thời gian để tránh restart khi xử lý batch lớn
         livenessProbe:
           exec:
             command:
             - sh
             - -c
             - "ps aux | grep -v grep | grep -E '(spark-submit|streaming_processing)'"
-          initialDelaySeconds: 60
-          periodSeconds: 30
-          timeoutSeconds: 10
-          failureThreshold: 5
+          initialDelaySeconds: 120  # Tăng từ 60s
+          periodSeconds: 60         # Giảm tần suất check từ 30s
+          timeoutSeconds: 15        # Tăng timeout
+          failureThreshold: 10      # Cho phép fail nhiều hơn trước khi restart
         
         # Readiness probe - check if process is running (more lenient)
         readinessProbe:
@@ -76,13 +81,14 @@ spec:
             - sh
             - -c
             - "ps aux | grep -v grep | grep -E '(python|java)' | wc -l | grep -v '^0$'"
-          initialDelaySeconds: 90
-          periodSeconds: 30
-          timeoutSeconds: 10
-          failureThreshold: 5
+          initialDelaySeconds: 120  # Tăng từ 90s
+          periodSeconds: 45         # Giảm tần suất check
+          timeoutSeconds: 15
+          failureThreshold: 8       # Tăng tolerance
       
       volumes:
       - name: checkpoint-dir
-        emptyDir: {}
+        persistentVolumeClaim:
+          claimName: spark-streaming-checkpoint
       
       restartPolicy: Always
