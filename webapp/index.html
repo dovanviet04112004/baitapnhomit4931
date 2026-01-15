@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Crypto Analytics Dashboard</title>
-    <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="css/main.css" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -61,10 +61,6 @@
               <div class="stat-item">
                 <span class="stat-label">Total Coins</span>
                 <span class="stat-value" id="totalCoins">-</span>
-              </div>
-              <div class="stat-item">
-                <span class="stat-label">Last Updated</span>
-                <span class="stat-value" id="lastUpdated">-</span>
               </div>
             </div>
 
@@ -187,6 +183,18 @@
         </div>
       </main>
 
+      <!-- Info Dialog -->
+      <dialog id="infoDialog">
+        <div class="dialog-content">
+          <div class="dialog-icon">⚠️</div>
+          <h3 class="dialog-title" id="dialogTitle">Notice</h3>
+          <p class="dialog-message" id="dialogMessage">Message goes here</p>
+          <div class="dialog-actions">
+            <button class="dialog-btn" id="dialogCloseBtn">Okay</button>
+          </div>
+        </div>
+      </dialog>
+
       <!-- Loading Overlay -->
       <div class="loading-overlay" id="loadingOverlay">
         <div class="spinner"></div>
@@ -194,6 +202,6 @@
       </div>
     </div>
 
-    <script src="app.js"></script>
+    <script type="module" src="js/app.js"></script>
   </body>
 </html>
