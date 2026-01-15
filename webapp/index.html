@@ -1,154 +1,199 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Crypto Analytics Dashboard</title>
-    <link rel="stylesheet" href="styles.css">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@300;400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
-</head>
-<body>
+  </head>
+  <body>
     <div class="container">
-        <!-- Header -->
-        <header class="header">
-            <div class="header-content">
-                <div class="logo">
-                    <div class="logo-icon">₿</div>
-                    <h1>Crypto Analytics</h1>
-                </div>
-                <div class="header-stats">
-                    <div class="stat-item">
-                        <span class="stat-label">Total Coins</span>
-                        <span class="stat-value" id="totalCoins">-</span>
-                    </div>
-                    <div class="stat-item">
-                        <span class="stat-label">Last Updated</span>
-                        <span class="stat-value" id="lastUpdated">-</span>
-                    </div>
-                </div>
+      <!-- Header -->
+      <header class="header">
+        <div class="header-content">
+          <div class="logo">
+            <div class="logo-icon">
+              <svg
+                width="28"
+                height="28"
+                viewBox="0 0 24 24"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  class="logo-top"
+                  d="M12 2L2 7L12 12L22 7L12 2Z"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                />
+                <path
+                  class="logo-bottom"
+                  d="M2 17L12 22L22 17"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                />
+                <path
+                  class="logo-middle"
+                  d="M2 12L12 17L22 12"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                />
+              </svg>
             </div>
-        </header>
+            <h1>Crypto Analytics</h1>
+          </div>
 
-        <!-- Timeframe Tabs -->
-        <div class="tabs">
-            <button class="tab-btn active" data-timeframe="daily">
-                <span class="tab-icon">📅</span>
-                Daily Metrics
-            </button>
-            <button class="tab-btn" data-timeframe="weekly">
-                <span class="tab-icon">📊</span>
-                Weekly Metrics
-            </button>
-            <button class="tab-btn" data-timeframe="monthly">
-                <span class="tab-icon">📈</span>
-                Monthly Metrics
-            </button>
+          <div class="header-actions">
+            <div class="header-stats">
+              <div class="stat-item">
+                <span class="stat-label">Total Coins</span>
+                <span class="stat-value" id="totalCoins">-</span>
+              </div>
+              <div class="stat-item">
+                <span class="stat-label">Last Updated</span>
+                <span class="stat-value" id="lastUpdated">-</span>
+              </div>
+            </div>
+
+            <div class="theme-switcher">
+              <button class="theme-btn" id="themeToggle" title="Toggle Theme">
+                <span class="theme-icon" id="themeIcon">☀️</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <!-- Timeframe Tabs -->
+      <div class="tabs">
+        <button class="tab-btn active" data-timeframe="daily">
+          <span class="tab-icon">📅</span>
+          Daily Metrics
+        </button>
+        <button class="tab-btn" data-timeframe="weekly">
+          <span class="tab-icon">📊</span>
+          Weekly Metrics
+        </button>
+        <button class="tab-btn" data-timeframe="monthly">
+          <span class="tab-icon">📈</span>
+          Monthly Metrics
+        </button>
+      </div>
+
+      <!-- Dashboard Content -->
+      <main class="dashboard">
+        <!-- Summary Cards -->
+        <div class="summary-cards">
+          <div class="card summary-card">
+            <div class="card-icon green">📈</div>
+            <div class="card-content">
+              <h3>Top Gainer</h3>
+              <p class="card-value" id="topGainer">-</p>
+              <p class="card-change positive" id="topGainerChange">-</p>
+            </div>
+          </div>
+          <div class="card summary-card">
+            <div class="card-icon red">📉</div>
+            <div class="card-content">
+              <h3>Top Loser</h3>
+              <p class="card-value" id="topLoser">-</p>
+              <p class="card-change negative" id="topLoserChange">-</p>
+            </div>
+          </div>
+          <div class="card summary-card">
+            <div class="card-icon blue">💎</div>
+            <div class="card-content">
+              <h3>Most Volatile</h3>
+              <p class="card-value" id="mostVolatile">-</p>
+              <p class="card-change" id="mostVolatileValue">-</p>
+            </div>
+          </div>
+          <div class="card summary-card">
+            <div class="card-icon purple">💰</div>
+            <div class="card-content">
+              <h3>Highest Volume</h3>
+              <p class="card-value" id="highestVolume">-</p>
+              <p class="card-change" id="highestVolumeValue">-</p>
+            </div>
+          </div>
         </div>
 
-        <!-- Dashboard Content -->
-        <main class="dashboard">
-            <!-- Summary Cards -->
-            <div class="summary-cards">
-                <div class="card summary-card">
-                    <div class="card-icon green">📈</div>
-                    <div class="card-content">
-                        <h3>Top Gainer</h3>
-                        <p class="card-value" id="topGainer">-</p>
-                        <p class="card-change positive" id="topGainerChange">-</p>
-                    </div>
-                </div>
-                <div class="card summary-card">
-                    <div class="card-icon red">📉</div>
-                    <div class="card-content">
-                        <h3>Top Loser</h3>
-                        <p class="card-value" id="topLoser">-</p>
-                        <p class="card-change negative" id="topLoserChange">-</p>
-                    </div>
-                </div>
-                <div class="card summary-card">
-                    <div class="card-icon blue">💎</div>
-                    <div class="card-content">
-                        <h3>Most Volatile</h3>
-                        <p class="card-value" id="mostVolatile">-</p>
-                        <p class="card-change" id="mostVolatileValue">-</p>
-                    </div>
-                </div>
-                <div class="card summary-card">
-                    <div class="card-icon purple">💰</div>
-                    <div class="card-content">
-                        <h3>Highest Volume</h3>
-                        <p class="card-value" id="highestVolume">-</p>
-                        <p class="card-change" id="highestVolumeValue">-</p>
-                    </div>
-                </div>
+        <!-- Charts Section -->
+        <div class="charts-grid">
+          <div class="card chart-card">
+            <div class="card-header">
+              <h3>Price Performance</h3>
+              <div class="chart-legend" id="priceChartLegend"></div>
             </div>
-
-            <!-- Charts Section -->
-            <div class="charts-grid">
-                <div class="card chart-card">
-                    <div class="card-header">
-                        <h3>Price Performance</h3>
-                        <div class="chart-legend" id="priceChartLegend"></div>
-                    </div>
-                    <div class="chart-container">
-                        <canvas id="priceChart"></canvas>
-                    </div>
-                </div>
-
-                <div class="card chart-card">
-                    <div class="card-header">
-                        <h3>Volume Analysis</h3>
-                    </div>
-                    <div class="chart-container">
-                        <canvas id="volumeChart"></canvas>
-                    </div>
-                </div>
+            <div class="chart-container">
+              <canvas id="priceChart"></canvas>
             </div>
+          </div>
 
-            <!-- Top Movers Table -->
-            <div class="card table-card">
-                <div class="card-header">
-                    <h3>Top Movers</h3>
-                    <div class="table-controls">
-                        <button class="filter-btn active" data-filter="all">All</button>
-                        <button class="filter-btn" data-filter="gainers">Gainers</button>
-                        <button class="filter-btn" data-filter="losers">Losers</button>
-                    </div>
-                </div>
-                <div class="table-container">
-                    <table class="data-table">
-                        <thead>
-                            <tr>
-                                <th>Rank</th>
-                                <th>Coin</th>
-                                <th>Symbol</th>
-                                <th>Open Price</th>
-                                <th>Close Price</th>
-                                <th>High</th>
-                                <th>Low</th>
-                                <th>Return %</th>
-                                <th>Volatility %</th>
-                                <th>Volume</th>
-                            </tr>
-                        </thead>
-                        <tbody id="tableBody">
-                            <!-- Data will be populated by JavaScript -->
-                        </tbody>
-                    </table>
-                </div>
+          <div class="card chart-card">
+            <div class="card-header">
+              <h3>Volume Analysis</h3>
             </div>
-        </main>
-
-        <!-- Loading Overlay -->
-        <div class="loading-overlay" id="loadingOverlay">
-            <div class="spinner"></div>
-            <p>Loading data...</p>
+            <div class="chart-container">
+              <canvas id="volumeChart"></canvas>
+            </div>
+          </div>
         </div>
+
+        <!-- Top Movers Table -->
+        <div class="card table-card">
+          <div class="card-header">
+            <h3>Top Movers</h3>
+            <div class="table-controls">
+              <button class="filter-btn active" data-filter="all">All</button>
+              <button class="filter-btn" data-filter="gainers">Gainers</button>
+              <button class="filter-btn" data-filter="losers">Losers</button>
+            </div>
+          </div>
+          <div class="table-container">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Rank</th>
+                  <th>Coin</th>
+                  <th>Symbol</th>
+                  <th>Open Price</th>
+                  <th>Close Price</th>
+                  <th>High</th>
+                  <th>Low</th>
+                  <th>Return %</th>
+                  <th>Volatility %</th>
+                  <th>Volume</th>
+                </tr>
+              </thead>
+              <tbody id="tableBody">
+                <!-- Data will be populated by JavaScript -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </main>
+
+      <!-- Loading Overlay -->
+      <div class="loading-overlay" id="loadingOverlay">
+        <div class="spinner"></div>
+        <p>Loading data...</p>
+      </div>
     </div>
 
     <script src="app.js"></script>
-</body>
+  </body>
 </html>
