@@ -18,8 +18,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy application files
 COPY api.py .
 COPY index.html .
-COPY app.js .
-COPY styles.css .
+COPY css/ ./css/
+COPY js/ ./js/
 
 # Expose port
 EXPOSE 8000

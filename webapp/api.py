@@ -41,6 +41,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Mount static directories
+app.mount("/css", StaticFiles(directory="css"), name="css")
+app.mount("/js", StaticFiles(directory="js"), name="js")
+
 # Pydantic Models
 class DailyMetric(BaseModel):
     date: str
@@ -101,26 +105,6 @@ def get_db_connection():
 async def serve_index():
     """Serve the main HTML page"""
     return FileResponse("index.html")
-
-@app.get("/app.js")
-async def serve_js():
-    """Serve JavaScript file"""
-    headers = {
-        "Cache-Control": "no-cache, no-store, must-revalidate",
-        "Pragma": "no-cache",
-        "Expires": "0"
-    }
-    return FileResponse("app.js", media_type="application/javascript", headers=headers)
-
-@app.get("/styles.css")
-async def serve_css():
-    """Serve CSS file"""
-    headers = {
-        "Cache-Control": "no-cache, no-store, must-revalidate",
-        "Pragma": "no-cache",
-        "Expires": "0"
-    }
-    return FileResponse("styles.css", media_type="text/css", headers=headers)
 
 @app.get("/api")
 async def api_root():
