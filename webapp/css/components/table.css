@@ -107,19 +107,15 @@
 
 .price-change {
   font-weight: 600;
-  padding: 4px 8px;
-  border-radius: 6px;
   font-family: "Outfit", sans-serif;
 }
 
 .price-change.positive {
   color: var(--color-green);
-  background: rgba(0, 255, 157, 0.1);
 }
 
 .price-change.negative {
   color: var(--color-red);
-  background: rgba(255, 59, 59, 0.1);
 }
 
 @media (max-width: 768px) {

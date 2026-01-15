@@ -55,9 +55,9 @@ export function renderTable(data, timeframe, filter) {
                 <span class="price-change ${
                   coin[returnField] >= 0 ? "positive" : "negative"
                 }">
-                    ${coin[returnField] >= 0 ? "+" : ""}${coin[
-        returnField
-      ].toFixed(2)}%
+                    ${coin[returnField] >= 0 ? "↑" : "↓"} ${Math.abs(
+        coin[returnField]
+      ).toFixed(2)}%
                 </span>
             </td>
             <td>${coin[volatilityField].toFixed(2)}%</td>

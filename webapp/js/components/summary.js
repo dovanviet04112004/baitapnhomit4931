@@ -17,16 +17,16 @@ export function updateSummaryCards(data, timeframe) {
     (a, b) => b[returnField] - a[returnField]
   )[0];
   document.getElementById("topGainer").textContent = topGainer.symbol;
-  document.getElementById("topGainerChange").textContent = `+${topGainer[
-    returnField
-  ].toFixed(2)}%`;
+  document.getElementById("topGainerChange").textContent = `↑ ${Math.abs(
+    topGainer[returnField]
+  ).toFixed(2)}%`;
 
   // Top Loser
   const topLoser = [...data].sort((a, b) => a[returnField] - b[returnField])[0];
   document.getElementById("topLoser").textContent = topLoser.symbol;
-  document.getElementById("topLoserChange").textContent = `${topLoser[
-    returnField
-  ].toFixed(2)}%`;
+  document.getElementById("topLoserChange").textContent = `↓ ${Math.abs(
+    topLoser[returnField]
+  ).toFixed(2)}%`;
 
   // Most Volatile
   const mostVolatile = [...data].sort(

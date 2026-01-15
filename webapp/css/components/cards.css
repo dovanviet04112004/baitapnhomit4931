@@ -113,18 +113,14 @@
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  padding: 4px 10px;
-  border-radius: 20px;
   margin-top: 8px;
 }
 
 .card-change.positive {
   color: var(--color-green);
-  background: var(--color-green-glow);
   text-shadow: none;
 }
 .card-change.negative {
   color: var(--color-red);
-  background: var(--color-red-glow);
   text-shadow: none;
 }
